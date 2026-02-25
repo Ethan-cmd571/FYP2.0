@@ -36,6 +36,11 @@
           <div><span>Turns</span><strong id="turns">0</strong></div>
         </div>
 
+        <div class="card">
+          <h2>Badges</h2>
+          <ul id="badges"></ul>
+        </div>
+
         <div class="row" style="margin-top:10px;">
           <button id="btnTurn" disabled>End Turn (+income)</button>
           <button id="btnCrisis" disabled>City Crisis (ML Task)</button>

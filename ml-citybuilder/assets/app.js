@@ -49,6 +49,21 @@ function renderState(bundle) {
   $("happiness").textContent = bundle.state.happiness ?? 0;
   $("turns").textContent = turns;
 
+  const badgesEl = document.getElementById("badges");
+if (badgesEl) {
+  badgesEl.innerHTML = "";
+  const badges = bundle.badges || [];
+  if (badges.length === 0) {
+    badgesEl.innerHTML = `<li class="muted">No badges yet.</li>`;
+  } else {
+    badges.forEach(b => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${b.name}</strong><br><span class="muted">${b.description}</span>`;
+      badgesEl.appendChild(li);
+    });
+  }
+}
+
   // leaderboard
   $("leaderboard").innerHTML = "";
   bundle.leaderboard.forEach(row => {
@@ -355,6 +370,9 @@ $("btnSubmit").onclick = async () => {
   if (data.correct) {
     $("feedback").textContent = `✅ Correct! +${data.reward} revenue.`;
     $("feedback").className = "feedback good";
+    if (data.earned_badges && data.earned_badges.length > 0) {
+    alert("🏅 New badge earned: " + data.earned_badges.join(", "));
+}
   } else {
     $("feedback").textContent = `❌ Not quite. Try another crisis or think again.`;
     $("feedback").className = "feedback bad";

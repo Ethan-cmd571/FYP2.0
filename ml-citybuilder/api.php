@@ -26,6 +26,31 @@ function ensure_user($pdo, $username) {
   return $user_id;
 }
 
+function award_badge($pdo, $user_id, $code) {
+  $b = $pdo->prepare("SELECT id FROM badges WHERE code=?");
+  $b->execute([$code]);
+  $badge_id = $b->fetchColumn();
+  if (!$badge_id) return false;
+
+  $ins = $pdo->prepare("INSERT IGNORE INTO user_badges(user_id, badge_id) VALUES(?,?)");
+  $ins->execute([$user_id, (int)$badge_id]);
+
+  // true if inserted new
+  return ($ins->rowCount() > 0);
+}
+
+function get_badges($pdo, $user_id) {
+  $q = $pdo->prepare("
+    SELECT b.code, b.name, b.description, ub.earned_at
+    FROM user_badges ub
+    JOIN badges b ON b.id = ub.badge_id
+    WHERE ub.user_id=?
+    ORDER BY ub.earned_at DESC
+  ");
+  $q->execute([$user_id]);
+  return $q->fetchAll();
+}
+
 function get_state_bundle($pdo, $user_id) {
   $state = $pdo->prepare("SELECT * FROM user_state WHERE user_id=?");
   $state->execute([$user_id]);
@@ -167,6 +192,53 @@ if ($t['task_type'] === 'match') {
   $rightObj = $correct['answer'] ?? [];
   if (is_array($ansObj) && is_array($rightObj)) {
     $right = true;
+    $earned = []; // collect newly earned badge codes
+
+// increment progress counters
+$pdo->prepare("UPDATE user_state SET tasks_correct = tasks_correct + 1 WHERE user_id=?")->execute([$user_id]);
+
+if ($t['task_type'] === 'mcq') {
+  $pdo->prepare("UPDATE user_state SET mcq_correct = mcq_correct + 1 WHERE user_id=?")->execute([$user_id]);
+}
+if ($t['task_type'] === 'ordering') {
+  $pdo->prepare("UPDATE user_state SET ordering_correct = ordering_correct + 1 WHERE user_id=?")->execute([$user_id]);
+}
+if ($t['task_type'] === 'match') {
+  $pdo->prepare("UPDATE user_state SET match_correct = match_correct + 1 WHERE user_id=?")->execute([$user_id]);
+}
+if ($t['task_type'] === 'code_mcq') {
+  $pdo->prepare("UPDATE user_state SET code_correct = code_correct + 1 WHERE user_id=?")->execute([$user_id]);
+}
+
+// boosters used successfully
+if ($use_booster) {
+  $pdo->prepare("UPDATE user_state SET boosters_used = boosters_used + 1 WHERE user_id=?")->execute([$user_id]);
+}
+
+// fetch updated state for badge rules
+$st = $pdo->prepare("SELECT revenue, tasks_correct, ordering_correct, match_correct, code_correct, boosters_used FROM user_state WHERE user_id=?");
+$st->execute([$user_id]);
+$s = $st->fetch();
+
+// Badge rules
+if ((int)$s['tasks_correct'] >= 1) {
+  if (award_badge($pdo, $user_id, "FIRST_WIN")) $earned[] = "FIRST_WIN";
+}
+if ((int)$s['ordering_correct'] >= 1) {
+  if (award_badge($pdo, $user_id, "PIPELINE_PRO")) $earned[] = "PIPELINE_PRO";
+}
+if ((int)$s['code_correct'] >= 3) {
+  if (award_badge($pdo, $user_id, "CODE_APPRENTICE")) $earned[] = "CODE_APPRENTICE";
+}
+if ((int)$s['match_correct'] >= 3) {
+  if (award_badge($pdo, $user_id, "MATCH_MASTER")) $earned[] = "MATCH_MASTER";
+}
+if ((int)$s['boosters_used'] >= 3) {
+  if (award_badge($pdo, $user_id, "HYPERPARAM_HERO")) $earned[] = "HYPERPARAM_HERO";
+}
+if ((int)$s['revenue'] >= 1000) {
+  if (award_badge($pdo, $user_id, "RICH_CITY")) $earned[] = "RICH_CITY";
+}
     foreach ($rightObj as $k => $v) {
       if (!isset($ansObj[$k]) || $ansObj[$k] !== $v) { $right = false; break; }
     }
@@ -301,6 +373,16 @@ if ($action === "place_building") {
   $cur->execute([$user_id, $x, $y]);
   $row = $cur->fetch();
   if (!$row) { http_response_code(404); echo json_encode(["error"=>"Tile not found"]); exit; }
+
+  $cnt = $pdo->prepare("SELECT COUNT(*) FROM city_tiles WHERE user_id=? AND building <> 'empty'");
+  $cnt->execute([$user_id]);
+  $buildings = (int)$cnt->fetchColumn();
+  if ($buildings >= 10) {
+    award_badge($pdo, $user_id, "CITY_PLANNER");
+    echo json_encode(["ok"=>true, "correct"=>true, "reward"=>$reward, "earned_badges"=>$earned] + get_state_bundle($pdo, $user_id));
+  exit;
+  }
+  
 
   // Prevent placing same building again
   if ($row['building'] === $building) {
