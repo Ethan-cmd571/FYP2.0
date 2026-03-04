@@ -165,6 +165,26 @@ function renderTask(crisis, task) {
   selectedAnswer = null;
   currentTaskId = task.task_id;
 
+  // --- Beginner-friendly context panel (NEW) ---
+  // Your backend will need to pass task.context + task.feedback (from correct_json)
+  // If not present, this section just won't render.
+  if (task.context && typeof task.context === "object") {
+    const ctx = task.context;
+
+    const ctxBox = document.createElement("div");
+    ctxBox.className = "learnbox";
+    ctxBox.innerHTML = `
+      <div class="learnbox-head">
+        <strong>Learn:</strong> ${ctx.concept ? ctx.concept : "Machine Learning Concept"}
+      </div>
+      ${ctx.explanation ? `<p><strong>What it is:</strong> ${ctx.explanation}</p>` : ""}
+      ${ctx.city_example ? `<p><strong>City example:</strong> ${ctx.city_example}</p>` : ""}
+      ${ctx.hint ? `<p class="muted"><strong>Hint:</strong> ${ctx.hint}</p>` : ""}
+    `;
+
+    $("taskOptions").appendChild(ctxBox);
+  }
+
   // clear any previous custom UI
   const extra = document.createElement("div");
   extra.id = "taskExtra";
@@ -303,6 +323,9 @@ function renderTask(crisis, task) {
     $("taskOptions").appendChild(extra);
   }
 
+  // store feedback text so submit handler can use it (NEW)
+  window._currentTaskFeedback = task.feedback || null;
+
   $("feedback").textContent = "";
   $("taskBox").classList.remove("hidden");
   $("useBooster").checked = false;
@@ -367,16 +390,15 @@ $("btnSubmit").onclick = async () => {
 
   if (data.error) return alert(data.error);
 
-  if (data.correct) {
-    $("feedback").textContent = `✅ Correct! +${data.reward} revenue.`;
-    $("feedback").className = "feedback good";
-    if (data.earned_badges && data.earned_badges.length > 0) {
-    alert("🏅 New badge earned: " + data.earned_badges.join(", "));
+if (data.correct) {
+  const msg = window._currentTaskFeedback?.correct || "✅ Correct!";
+  $("feedback").innerHTML = `✅ <strong>Correct.</strong><br>${msg}`;
+  $("feedback").className = "feedback good";
+} else {
+  const msg = window._currentTaskFeedback?.incorrect || "❌ Not quite. Try again.";
+  $("feedback").innerHTML = `❌ <strong>Not quite.</strong><br>${msg}`;
+  $("feedback").className = "feedback bad";
 }
-  } else {
-    $("feedback").textContent = `❌ Not quite. Try another crisis or think again.`;
-    $("feedback").className = "feedback bad";
-  }
 
   renderState(data);
 };

@@ -132,6 +132,9 @@ $payload = [
   "reward_points" => (int)$t['reward_points']
 ];
 
+$payload["context"] = $correct["context"] ?? null;
+$payload["feedback"] = $correct["feedback"] ?? null;
+
 if ($t['task_type'] === 'mcq') {
   $payload["options"] = $correct['options'] ?? [];
 }
