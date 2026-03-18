@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 17, 2026 at 07:07 PM
+-- Generation Time: Mar 18, 2026 at 09:13 AM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -450,7 +450,66 @@ INSERT INTO `activity_log` (`id`, `user_id`, `event_type`, `message`, `meta_json
 (407, 2, 'turn', 'End turn: +17 revenue from city income.', NULL, '2026-03-17 17:31:25'),
 (408, 2, 'turn', 'End turn: +17 revenue from city income.', NULL, '2026-03-17 17:31:25'),
 (409, 2, 'turn', 'End turn: +17 revenue from city income.', NULL, '2026-03-17 17:31:25'),
-(410, 2, 'login', 'Logged in as test', NULL, '2026-03-17 17:31:41');
+(410, 2, 'login', 'Logged in as test', NULL, '2026-03-17 17:31:41'),
+(411, 9, 'login', 'Logged in as waaal', NULL, '2026-03-17 19:14:57'),
+(412, 9, 'narration', 'Crisis: Power Shortage Forecast', NULL, '2026-03-17 19:15:11'),
+(413, 9, 'mistake', 'Incorrect ML decision. Try again.', NULL, '2026-03-17 19:15:22'),
+(414, 9, 'earn_points', 'Earned +50 revenue for correct answer', NULL, '2026-03-17 19:15:25'),
+(415, 9, 'narration', 'Crisis: Housing Demand Surge', NULL, '2026-03-17 19:15:37'),
+(416, 9, 'narration', 'Crisis: Traffic Gridlock', NULL, '2026-03-17 19:15:45'),
+(417, 9, 'earn_points', 'Earned +55 revenue for correct answer', NULL, '2026-03-17 19:16:04'),
+(418, 9, 'narration', 'Crisis: Crime Patrol Allocation', NULL, '2026-03-17 19:16:14'),
+(419, 9, 'narration', 'Crisis: Housing Demand Surge', NULL, '2026-03-17 19:16:16'),
+(420, 9, 'earn_points', 'Earned +50 revenue for correct answer', NULL, '2026-03-17 19:16:31'),
+(421, 9, 'narration', 'Crisis: Model Audit', NULL, '2026-03-17 19:16:33'),
+(422, 9, 'earn_points', 'Earned +50 revenue for correct answer', NULL, '2026-03-17 19:16:42'),
+(423, 9, 'narration', 'Crisis: Traffic Gridlock', NULL, '2026-03-17 19:16:55'),
+(424, 9, 'earn_points', 'Earned +60 revenue for correct answer', NULL, '2026-03-17 19:17:06'),
+(425, 9, 'narration', 'Crisis: Model Audit', NULL, '2026-03-17 19:17:12'),
+(426, 9, 'earn_points', 'Earned +60 revenue for correct answer', NULL, '2026-03-17 19:17:29'),
+(427, 9, 'narration', 'Crisis: Dirty Sensor Data', NULL, '2026-03-17 19:17:41'),
+(428, 9, 'earn_points', 'Earned +55 revenue for correct answer', NULL, '2026-03-17 19:17:46'),
+(429, 9, 'turn', 'End turn: +5 revenue from city income.', NULL, '2026-03-17 19:17:53'),
+(430, 9, 'narration', 'Crisis: Citizen Segmentation', NULL, '2026-03-17 19:18:03'),
+(431, 9, 'earn_points', 'Earned +60 revenue for correct answer', NULL, '2026-03-17 19:18:07'),
+(432, 9, 'narration', 'Crisis: Housing Demand Surge', NULL, '2026-03-17 19:18:10'),
+(433, 9, 'earn_points', 'Earned +50 revenue for correct answer', NULL, '2026-03-17 19:18:13'),
+(434, 9, 'narration', 'Crisis: Citizen Segmentation', NULL, '2026-03-17 19:18:37'),
+(435, 9, 'earn_points', 'Earned +55 revenue for correct answer', NULL, '2026-03-17 19:18:43'),
+(436, 9, 'turn', 'End turn: +5 revenue from city income.', NULL, '2026-03-17 19:27:53'),
+(437, 9, 'narration', 'Crisis: Housing Demand Surge', NULL, '2026-03-17 19:28:03'),
+(438, 9, 'earn_points', 'Earned +50 revenue for correct answer', '{\"task_id\":2,\"topic\":\"Regression\",\"response_seconds\":21}', '2026-03-17 19:28:24'),
+(439, 9, 'narration', 'Crisis: Crime Patrol Allocation', NULL, '2026-03-17 19:28:48'),
+(440, 9, 'earn_points', 'Earned +50 revenue for correct answer', '{\"task_id\":4,\"topic\":\"Classification\",\"response_seconds\":14}', '2026-03-17 19:29:02'),
+(441, 9, 'narration', 'Crisis: Citizen Segmentation', NULL, '2026-03-17 19:29:11'),
+(442, 9, 'earn_points', 'Earned +60 revenue for correct answer', '{\"task_id\":7,\"topic\":\"Clustering\",\"response_seconds\":19}', '2026-03-17 19:29:30'),
+(443, 9, 'narration', 'Crisis: Fair Services Review', NULL, '2026-03-17 19:29:41'),
+(444, 9, 'earn_points', 'Earned +50 revenue for correct answer', '{\"task_id\":1,\"topic\":\"Regression\",\"response_seconds\":8}', '2026-03-17 19:29:49'),
+(445, 9, 'narration', 'Crisis: Model Audit', NULL, '2026-03-17 19:29:55'),
+(446, 9, 'booster', 'Used a booster', NULL, '2026-03-17 19:30:02'),
+(447, 9, 'earn_points', 'Earned +63 revenue for correct answer', '{\"task_id\":4,\"topic\":\"Classification\",\"response_seconds\":7}', '2026-03-17 19:30:02'),
+(448, 9, 'narration', 'Crisis: Crime Patrol Allocation', NULL, '2026-03-17 19:30:09'),
+(449, 9, 'mistake', 'Incorrect ML decision. Try again.', '{\"task_id\":5,\"response_seconds\":12}', '2026-03-17 19:30:21'),
+(450, 9, 'turn', 'End turn: +5 revenue from city income.', NULL, '2026-03-17 19:30:34'),
+(451, 10, 'login', 'Logged in as JJJ', NULL, '2026-03-18 08:09:11'),
+(452, 10, 'build', 'Starter house placed in Central District.', '{\"building\":\"house\",\"x\":0,\"y\":0,\"starter\":true}', '2026-03-18 08:09:11'),
+(453, 10, 'narration', 'Crisis: Power Shortage Forecast', NULL, '2026-03-18 08:09:25'),
+(454, 10, 'earn_points', 'Earned +50 revenue for correct answer', '{\"task_id\":1,\"topic\":\"Regression\",\"response_seconds\":12}', '2026-03-18 08:09:37'),
+(455, 10, 'narration', 'Crisis: Traffic Gridlock', NULL, '2026-03-18 08:09:44'),
+(456, 10, 'earn_points', 'Earned +55 revenue for correct answer', '{\"task_id\":6,\"topic\":\"Clustering\",\"response_seconds\":23}', '2026-03-18 08:10:07'),
+(457, 10, 'narration', 'Crisis: Housing Demand Surge', NULL, '2026-03-18 08:10:32'),
+(458, 10, 'earn_points', 'Earned +55 revenue for correct answer', '{\"task_id\":3,\"topic\":\"Regression\",\"response_seconds\":14}', '2026-03-18 08:10:46'),
+(459, 10, 'narration', 'Crisis: Crime Patrol Allocation', NULL, '2026-03-18 08:10:52'),
+(460, 10, 'earn_points', 'Earned +50 revenue for correct answer', '{\"task_id\":4,\"topic\":\"Classification\",\"response_seconds\":9}', '2026-03-18 08:11:02'),
+(461, 10, 'narration', 'Crisis: Housing Demand Surge', NULL, '2026-03-18 08:11:09'),
+(462, 10, 'earn_points', 'Earned +50 revenue for correct answer', '{\"task_id\":1,\"topic\":\"Regression\",\"response_seconds\":11}', '2026-03-18 08:11:20'),
+(463, 10, 'narration', 'Crisis: Dirty Sensor Data', NULL, '2026-03-18 08:11:34'),
+(464, 10, 'earn_points', 'Earned +55 revenue for correct answer', '{\"task_id\":10,\"topic\":\"Train Test Split\",\"response_seconds\":14}', '2026-03-18 08:11:48'),
+(465, 10, 'narration', 'Crisis: Traffic Gridlock', NULL, '2026-03-18 08:12:00'),
+(466, 10, 'earn_points', 'Earned +55 revenue for correct answer', '{\"task_id\":6,\"topic\":\"Clustering\",\"response_seconds\":7}', '2026-03-18 08:12:07'),
+(467, 10, 'narration', 'Crisis: Citizen Segmentation', NULL, '2026-03-18 08:12:35'),
+(468, 10, 'earn_points', 'Earned +60 revenue for correct answer', '{\"task_id\":7,\"topic\":\"Clustering\",\"response_seconds\":6}', '2026-03-18 08:12:41'),
+(469, 10, 'turn', 'End turn: +8 revenue from city income.', NULL, '2026-03-18 08:12:48');
 
 -- --------------------------------------------------------
 
@@ -1199,7 +1258,207 @@ INSERT INTO `city_tiles` (`user_id`, `x`, `y`, `building`, `blevel`, `placed_at`
 (8, 9, 6, 'empty', 1, '2026-03-17 17:17:41'),
 (8, 9, 7, 'empty', 1, '2026-03-17 17:17:41'),
 (8, 9, 8, 'empty', 1, '2026-03-17 17:17:41'),
-(8, 9, 9, 'empty', 1, '2026-03-17 17:17:41');
+(8, 9, 9, 'empty', 1, '2026-03-17 17:17:41'),
+(9, 0, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 0, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 1, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 2, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 3, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 4, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 5, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 6, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 7, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 8, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 0, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 1, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 2, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 3, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 4, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 5, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 6, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 7, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 8, 'empty', 1, '2026-03-17 19:14:57'),
+(9, 9, 9, 'empty', 1, '2026-03-17 19:14:57'),
+(10, 0, 0, 'house', 1, '2026-03-18 08:09:11'),
+(10, 0, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 0, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 1, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 2, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 3, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 4, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 5, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 6, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 7, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 8, 9, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 0, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 1, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 2, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 3, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 4, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 5, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 6, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 7, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 8, 'empty', 1, '2026-03-18 08:09:11'),
+(10, 9, 9, 'empty', 1, '2026-03-18 08:09:11');
 
 -- --------------------------------------------------------
 
@@ -1409,7 +1668,9 @@ INSERT INTO `users` (`id`, `username`, `created_at`) VALUES
 (5, 'ED', '2026-02-25 13:03:13'),
 (6, 'Ensi', '2026-02-25 13:33:11'),
 (7, 'reddd', '2026-03-17 14:45:40'),
-(8, 'Johnnnnnn', '2026-03-17 17:17:41');
+(8, 'Johnnnnnn', '2026-03-17 17:17:41'),
+(9, 'waaal', '2026-03-17 19:14:57'),
+(10, 'JJJ', '2026-03-18 08:09:11');
 
 -- --------------------------------------------------------
 
@@ -1436,6 +1697,34 @@ INSERT INTO `user_badges` (`user_id`, `badge_id`, `earned_at`) VALUES
 (4, 2, '2026-02-25 12:25:24'),
 (5, 1, '2026-02-25 13:03:48'),
 (7, 4, '2026-03-17 14:45:51');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_learning_analytics`
+--
+
+CREATE TABLE `user_learning_analytics` (
+  `user_id` int(11) NOT NULL,
+  `challenges_started` int(11) NOT NULL DEFAULT 0,
+  `attempts_total` int(11) NOT NULL DEFAULT 0,
+  `correct_total` int(11) NOT NULL DEFAULT 0,
+  `incorrect_total` int(11) NOT NULL DEFAULT 0,
+  `hints_viewed` int(11) NOT NULL DEFAULT 0,
+  `boosters_used` int(11) NOT NULL DEFAULT 0,
+  `lessons_acknowledged` int(11) NOT NULL DEFAULT 0,
+  `total_response_seconds` int(11) NOT NULL DEFAULT 0,
+  `last_answered_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `user_learning_analytics`
+--
+
+INSERT INTO `user_learning_analytics` (`user_id`, `challenges_started`, `attempts_total`, `correct_total`, `incorrect_total`, `hints_viewed`, `boosters_used`, `lessons_acknowledged`, `total_response_seconds`, `last_answered_at`, `updated_at`) VALUES
+(9, 6, 6, 5, 1, 1, 1, 6, 81, '2026-03-17 19:30:21', '2026-03-17 19:30:21'),
+(10, 8, 8, 8, 0, 0, 0, 8, 96, '2026-03-18 08:12:41', '2026-03-18 08:12:41');
 
 -- --------------------------------------------------------
 
@@ -1474,7 +1763,34 @@ INSERT INTO `user_state` (`user_id`, `revenue`, `level`, `xp`, `booster_tokens`,
 (5, 360, 1, 360, 2, 6, '2026-02-25 13:03:48', 5, 50, 0, 0, 0, 0, 0, 0, NULL),
 (6, 40, 1, 160, 2, 4, '2026-02-25 13:42:00', 11, 54, 0, 0, 0, 0, 0, 0, NULL),
 (7, 627, 3, 563, 2, 3, '2026-03-17 17:05:53', 7, 53, 1, 0, 0, 0, 1, 0, 5),
-(8, 280, 2, 280, 2, 3, '2026-03-17 17:29:13', 5, 50, 0, 0, 0, 0, 0, 0, 5);
+(8, 280, 2, 280, 2, 3, '2026-03-17 17:29:13', 5, 50, 0, 0, 0, 0, 0, 0, 5),
+(9, 833, 4, 824, 1, 3, '2026-03-17 19:30:34', 5, 50, 5, 0, 0, 0, 0, 0, 5),
+(10, 438, 2, 434, 2, 7, '2026-03-18 08:12:48', 8, 52, 8, 0, 0, 0, 0, 0, 7);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_topic_progress`
+--
+
+CREATE TABLE `user_topic_progress` (
+  `user_id` int(11) NOT NULL,
+  `topic` varchar(120) NOT NULL,
+  `correct_count` int(11) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `user_topic_progress`
+--
+
+INSERT INTO `user_topic_progress` (`user_id`, `topic`, `correct_count`) VALUES
+(9, 'Classification', 2),
+(9, 'Clustering', 1),
+(9, 'Regression', 2),
+(10, 'Classification', 1),
+(10, 'Clustering', 3),
+(10, 'Regression', 3),
+(10, 'Train Test Split', 1);
 
 --
 -- Indexes for dumped tables
@@ -1535,10 +1851,22 @@ ALTER TABLE `user_badges`
   ADD KEY `fk_ub_badge` (`badge_id`);
 
 --
+-- Indexes for table `user_learning_analytics`
+--
+ALTER TABLE `user_learning_analytics`
+  ADD PRIMARY KEY (`user_id`);
+
+--
 -- Indexes for table `user_state`
 --
 ALTER TABLE `user_state`
   ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `user_topic_progress`
+--
+ALTER TABLE `user_topic_progress`
+  ADD PRIMARY KEY (`user_id`,`topic`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -1548,7 +1876,7 @@ ALTER TABLE `user_state`
 -- AUTO_INCREMENT for table `activity_log`
 --
 ALTER TABLE `activity_log`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=411;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=470;
 
 --
 -- AUTO_INCREMENT for table `badges`
@@ -1578,7 +1906,7 @@ ALTER TABLE `tasks`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Constraints for dumped tables
