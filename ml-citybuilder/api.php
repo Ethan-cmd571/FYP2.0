@@ -2,764 +2,406 @@
 require_once "config.php";
 header("Content-Type: application/json");
 
-$action = $_GET['action'] ?? '';
+$action = $_GET["action"] ?? "";
 
-$pdo->exec("CREATE TABLE IF NOT EXISTS user_topic_progress (
-  user_id INT NOT NULL,
-  topic VARCHAR(120) NOT NULL,
-  correct_count INT NOT NULL DEFAULT 0,
-  updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (user_id, topic)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-
-$pdo->exec("CREATE TABLE IF NOT EXISTS user_learning_analytics (
-  user_id INT NOT NULL PRIMARY KEY,
-  challenges_started INT NOT NULL DEFAULT 0,
-  attempts_total INT NOT NULL DEFAULT 0,
-  correct_total INT NOT NULL DEFAULT 0,
-  incorrect_total INT NOT NULL DEFAULT 0,
-  hints_viewed INT NOT NULL DEFAULT 0,
-  boosters_used INT NOT NULL DEFAULT 0,
-  lessons_acknowledged INT NOT NULL DEFAULT 0,
-  total_response_seconds INT NOT NULL DEFAULT 0,
-  last_answered_at TIMESTAMP NULL DEFAULT NULL,
-  updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-
-
-function json_input() {
-  $raw = file_get_contents("php://input");
-  if (!$raw) return [];
-  $decoded = json_decode($raw, true);
-  return is_array($decoded) ? $decoded : [];
+function json_input(): array {
+    $raw = file_get_contents("php://input");
+    if (!$raw) return [];
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
 }
 
-function respond($data, $status = 200) {
-  http_response_code($status);
-  echo json_encode($data);
-  exit;
+function respond($data, int $code = 200): void {
+    http_response_code($code);
+    echo json_encode($data);
+    exit;
 }
 
-function ensure_user($pdo, $username) {
-  $stmt = $pdo->prepare("SELECT id FROM users WHERE username=?");
-  $stmt->execute([$username]);
-  $existing = $stmt->fetch();
-  if ($existing) {
-    $user_id = (int)$existing['id'];
-    $pdo->prepare("INSERT IGNORE INTO user_state(user_id) VALUES(?)")->execute([$user_id]);
-    return $user_id;
-  }
-
-  $pdo->prepare("INSERT INTO users(username) VALUES(?)")->execute([$username]);
-  $user_id = (int)$pdo->lastInsertId();
-  $pdo->prepare("INSERT INTO user_state(user_id) VALUES(?)")->execute([$user_id]);
-  return $user_id;
+function normalize_difficulty(?string $d): string {
+    $d = strtolower(trim((string)$d));
+    return in_array($d, ["easy", "medium", "hard"], true) ? $d : "easy";
 }
 
-function ensure_tiles($pdo, $user_id, $w = 10, $h = 10) {
-  $stmt = $pdo->prepare("SELECT COUNT(*) FROM city_tiles WHERE user_id=?");
-  $stmt->execute([$user_id]);
-  $count = (int)$stmt->fetchColumn();
-  if ($count >= $w * $h) return;
+function reward_multiplier(string $difficulty): float {
+    return match ($difficulty) {
+        "medium" => 1.35,
+        "hard" => 1.8,
+        default => 1.0
+    };
+}
 
-  $pdo->beginTransaction();
-  $ins = $pdo->prepare("INSERT IGNORE INTO city_tiles(user_id,x,y,building,blevel) VALUES(?,?,?,?,1)");
-  for ($y = 0; $y < $h; $y++) {
-    for ($x = 0; $x < $w; $x++) {
-      $ins->execute([$user_id, $x, $y, 'empty']);
+function penalties_for(string $difficulty): array {
+    return match ($difficulty) {
+        "medium" => ["revenue" => 20, "happiness" => 6, "xp" => 10],
+        "hard" => ["revenue" => 35, "happiness" => 10, "xp" => 20],
+        default => ["revenue" => 10, "happiness" => 3, "xp" => 5]
+    };
+}
+
+function progress_column(string $difficulty): string {
+    return match ($difficulty) {
+        "medium" => "current_medium",
+        "hard" => "current_hard",
+        default => "current_easy"
+    };
+}
+
+function safe_exec(PDO $pdo, string $sql): void {
+    try { $pdo->exec($sql); } catch (Throwable $e) {}
+}
+
+function bootstrap_schema(PDO $pdo): void {
+    safe_exec($pdo, "CREATE TABLE IF NOT EXISTS activity_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        event_type VARCHAR(40) NOT NULL,
+        message VARCHAR(255) NOT NULL,
+        meta_json JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_created (user_id, created_at),
+        CONSTRAINT fk_activity_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    safe_exec($pdo, "CREATE TABLE IF NOT EXISTS badges (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(60) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL,
+        description VARCHAR(255) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    safe_exec($pdo, "CREATE TABLE IF NOT EXISTS user_badges (
+        user_id INT NOT NULL,
+        badge_id INT NOT NULL,
+        earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, badge_id),
+        CONSTRAINT fk_ub_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_ub_badge FOREIGN KEY (badge_id) REFERENCES badges(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $seed = $pdo->prepare("INSERT IGNORE INTO badges (code, name, description) VALUES (?, ?, ?)");
+    $seed->execute(['course_easy_complete', 'Foundations Finisher', 'Completed the full Foundations / Easy curriculum.']);
+    $seed->execute(['course_medium_complete', 'Intermediate Finisher', 'Completed the full Intermediate / Medium curriculum.']);
+    $seed->execute(['course_hard_complete', 'Advanced Finisher', 'Completed the full Advanced / Hard curriculum.']);
+}
+
+function log_activity(PDO $pdo, int $userId, string $eventType, string $message, ?array $meta = null): void {
+    $stmt = $pdo->prepare("INSERT INTO activity_log (user_id, event_type, message, meta_json) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$userId, $eventType, $message, $meta ? json_encode($meta) : null]);
+}
+
+function award_badge(PDO $pdo, int $userId, string $badgeCode): ?array {
+    $stmt = $pdo->prepare("SELECT id, code, name, description FROM badges WHERE code = ?");
+    $stmt->execute([$badgeCode]);
+    $badge = $stmt->fetch();
+    if (!$badge) return null;
+
+    $ins = $pdo->prepare("INSERT IGNORE INTO user_badges (user_id, badge_id) VALUES (?, ?)");
+    $ins->execute([$userId, (int)$badge["id"]]);
+    if ($ins->rowCount() > 0) {
+        return [
+            "code" => $badge["code"],
+            "name" => $badge["name"],
+            "description" => $badge["description"]
+        ];
     }
-  }
-  $pdo->commit();
+    return null;
 }
 
-function log_event($pdo, $user_id, $type, $message, $meta = null) {
-  $stmt = $pdo->prepare("INSERT INTO activity_log(user_id,event_type,message,meta_json) VALUES(?,?,?,?)");
-  $stmt->execute([$user_id, $type, $message, $meta ? json_encode($meta) : null]);
-}
+function maybe_award_course_badge(PDO $pdo, int $userId, string $difficulty): ?array {
+    $progressCol = progress_column($difficulty);
+    $stmt = $pdo->prepare("SELECT {$progressCol} AS progress FROM user_state WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $progress = (int)($stmt->fetchColumn() ?: 1);
 
-function award_badge($pdo, $user_id, $code) {
-  $stmt = $pdo->prepare("SELECT id FROM badges WHERE code=?");
-  $stmt->execute([$code]);
-  $badge_id = $stmt->fetchColumn();
-  if (!$badge_id) return false;
-  $ins = $pdo->prepare("INSERT IGNORE INTO user_badges(user_id,badge_id) VALUES(?,?)");
-  $ins->execute([$user_id, (int)$badge_id]);
-  return $ins->rowCount() > 0;
-}
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM tasks WHERE difficulty = ?");
+    $countStmt->execute([$difficulty]);
+    $taskCount = (int)$countStmt->fetchColumn();
 
-function parse_task_payload($taskRow) {
-  $correct = json_decode($taskRow['correct_json'], true);
-  if (!is_array($correct)) $correct = [];
-
-  $payload = [
-    'task_id' => (int)$taskRow['id'],
-    'prompt' => $taskRow['prompt'],
-    'task_type' => $taskRow['task_type'],
-    'reward_points' => (int)$taskRow['reward_points'],
-    'context' => $correct['context'] ?? null,
-    'feedback' => $correct['feedback'] ?? null,
-  ];
-
-  if ($taskRow['task_type'] === 'mcq') {
-    $payload['options'] = $correct['options'] ?? [];
-  }
-  if ($taskRow['task_type'] === 'code_mcq') {
-    $payload['code'] = $correct['code'] ?? '';
-    $payload['options'] = $correct['options'] ?? [];
-  }
-  if ($taskRow['task_type'] === 'ordering') {
-    $payload['items'] = $correct['items'] ?? [];
-  }
-  if ($taskRow['task_type'] === 'match') {
-    $payload['left'] = $correct['left'] ?? [];
-    $payload['right'] = $correct['right'] ?? [];
-  }
-  return [$payload, $correct];
-}
-
-
-function ensure_learning_rows($pdo, $user_id) {
-  $pdo->prepare("INSERT IGNORE INTO user_learning_analytics(user_id) VALUES(?)")->execute([$user_id]);
-}
-
-function get_topic_progress($pdo, $user_id) {
-  ensure_learning_rows($pdo, $user_id);
-  $stmt = $pdo->prepare("SELECT topic, correct_count FROM user_topic_progress WHERE user_id=? ORDER BY correct_count DESC, topic ASC");
-  $stmt->execute([$user_id]);
-  return $stmt->fetchAll();
-}
-
-function get_learning_analytics($pdo, $user_id) {
-  ensure_learning_rows($pdo, $user_id);
-  $stmt = $pdo->prepare("SELECT * FROM user_learning_analytics WHERE user_id=?");
-  $stmt->execute([$user_id]);
-  $row = $stmt->fetch();
-  if (!$row) return [
-    'challenges_started' => 0, 'attempts_total' => 0, 'correct_total' => 0, 'incorrect_total' => 0,
-    'hints_viewed' => 0, 'boosters_used' => 0, 'lessons_acknowledged' => 0, 'total_response_seconds' => 0,
-    'accuracy_pct' => 0
-  ];
-  $attempts = (int)$row['attempts_total'];
-  $correct = (int)$row['correct_total'];
-  $row['accuracy_pct'] = $attempts > 0 ? (int)round(($correct / $attempts) * 100) : 0;
-  return $row;
-}
-
-function record_topic_mastery($pdo, $user_id, $topic) {
-  if (!$topic) return;
-  $stmt = $pdo->prepare("
-    INSERT INTO user_topic_progress(user_id, topic, correct_count)
-    VALUES(?,?,1)
-    ON DUPLICATE KEY UPDATE correct_count = correct_count + 1
-  ");
-  $stmt->execute([$user_id, $topic]);
-}
-
-function district_rules($state, $city, $districtBuildings = null) {
-  $tasks = (int)$state['tasks_correct'];
-  $revenue = (int)$state['revenue'];
-  $ordering = (int)$state['ordering_correct'];
-  $code = (int)$state['code_correct'];
-  $happy = (int)$state['happiness'];
-  $labCount = (int)($city['lab'] ?? 0);
-
-  $districtBuildings = is_array($districtBuildings) ? $districtBuildings : [
-    'central' => 0,
-    'industry' => 0,
-    'green' => 0,
-    'innovation' => 0,
-  ];
-
-  $buildingProgress = [
-    'central' => min(100, (int)$districtBuildings['central'] * 20),
-    'industry' => min(100, (int)$districtBuildings['industry'] * 25),
-    'green' => min(100, (int)$districtBuildings['green'] * 25),
-    'innovation' => min(100, (int)$districtBuildings['innovation'] * 35),
-  ];
-
-  $rules = [
-    'central' => [
-      'unlocked' => true,
-      'note' => 'Your starting downtown zone for homes and early growth.',
-      'progress' => max($buildingProgress['central'], min(100, max(15, $tasks * 20))),
-    ],
-    'industry' => [
-      'unlocked' => ($tasks >= 2 || $revenue >= 250),
-      'note' => 'Unlocked by building economic momentum.',
-      'progress' => max($buildingProgress['industry'], min(100, max(($tasks * 25), min(100, (int)round($revenue / 2.5))))),
-    ],
-    'green' => [
-      'unlocked' => ($ordering >= 1 || $tasks >= 3 || $happy >= 55),
-      'note' => 'Unlocked by planning the ML pipeline and improving wellbeing.',
-      'progress' => max($buildingProgress['green'], min(100, max($ordering * 50, ($tasks * 20), ($happy - 40) * 5))),
-    ],
-    'innovation' => [
-      'unlocked' => ($code >= 1 || $tasks >= 5 || $labCount >= 1),
-      'note' => 'Unlocked by coding or advanced ML progress.',
-      'progress' => max($buildingProgress['innovation'], min(100, max($code * 60, $tasks * 15, $labCount ? 100 : 0))),
-    ],
-  ];
-
-  foreach ($rules as $key => &$rule) {
-    $rule['buildings'] = (int)($districtBuildings[$key] ?? 0);
-    if ($rule['unlocked'] && $rule['buildings'] > 0) {
-      $rule['note'] .= ' Visible growth now contributes directly to this progress bar.';
+    if ($taskCount > 0 && $progress > $taskCount) {
+        $code = match ($difficulty) {
+            "medium" => "course_medium_complete",
+            "hard" => "course_hard_complete",
+            default => "course_easy_complete"
+        };
+        return award_badge($pdo, $userId, $code);
     }
-  }
-  unset($rule);
-
-  return $rules;
+    return null;
 }
 
-function unlocked_buildings($state, $city) {
-  $tasks = (int)$state['tasks_correct'];
-  $revenue = (int)$state['revenue'];
-  $ordering = (int)$state['ordering_correct'];
-  $code = (int)$state['code_correct'];
-  $happy = (int)$state['happiness'];
-
-  $out = ['house'];
-  if ($tasks >= 2 || $revenue >= 300 || ($city['factory'] ?? 0) >= 1) $out[] = 'factory';
-  if ($ordering >= 1 || $tasks >= 3 || $happy >= 55 || ($city['park'] ?? 0) >= 1) $out[] = 'park';
-  if ($code >= 1 || $tasks >= 5 || ($city['lab'] ?? 0) >= 1) $out[] = 'lab';
-  return array_values(array_unique($out));
+function ensure_user(PDO $pdo, string $username): int {
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt->execute([$username]);
+    $row = $stmt->fetch();
+    if ($row) {
+        $userId = (int)$row["id"];
+        $pdo->prepare("INSERT IGNORE INTO user_state (user_id) VALUES (?)")->execute([$userId]);
+        return $userId;
+    }
+    $pdo->prepare("INSERT INTO users (username) VALUES (?)")->execute([$username]);
+    $userId = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO user_state (user_id, houses) VALUES (?, 1)")->execute([$userId]);
+    return $userId;
 }
 
-function city_counts($pdo, $user_id) {
-  ensure_tiles($pdo, $user_id);
-  $counts = ['house' => 0, 'factory' => 0, 'park' => 0, 'lab' => 0, 'placed_total' => 0];
-  $stmt = $pdo->prepare("SELECT building, COUNT(*) c FROM city_tiles WHERE user_id=? GROUP BY building");
-  $stmt->execute([$user_id]);
-  foreach ($stmt->fetchAll() as $row) {
-    $building = $row['building'];
-    $count = (int)$row['c'];
-    if ($building !== 'empty') $counts['placed_total'] += $count;
-    if (isset($counts[$building])) $counts[$building] = $count;
-  }
-  return $counts;
+function state_bundle(PDO $pdo, int $userId): array {
+    $stmt = $pdo->prepare("SELECT * FROM user_state WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $state = $stmt->fetch();
+    if (!$state) respond(["error" => "State not found"], 404);
+
+    $districts = [
+        "easy" => ["label" => "Foundations District", "building" => "🏠", "count" => (int)$state["houses"], "progress" => min(100, (int)$state["current_easy"] * 2)],
+        "medium" => ["label" => "Evaluation District", "building" => "🏭", "count" => (int)$state["factories"], "progress" => min(100, (int)$state["current_medium"] * 2)],
+        "hard" => ["label" => "Advanced District", "building" => "🔬", "count" => (int)$state["labs"], "progress" => min(100, (int)$state["current_hard"] * 2)],
+        "wellbeing" => ["label" => "Wellbeing District", "building" => "🌳", "count" => (int)$state["parks"], "progress" => max(0, min(100, (int)$state["happiness"]))]
+    ];
+
+    $masteryStmt = $pdo->prepare("SELECT ml_topic, attempts, correct_count FROM user_topic_stats WHERE user_id = ? ORDER BY ml_topic ASC");
+    $masteryStmt->execute([$userId]);
+    $mastery = [];
+    foreach ($masteryStmt->fetchAll() as $row) {
+        $attempts = (int)$row["attempts"];
+        $correct = (int)$row["correct_count"];
+        $acc = $attempts > 0 ? round(($correct / $attempts) * 100) : 0;
+        $level = $acc >= 75 ? "strong" : ($acc >= 50 ? "medium" : "weak");
+        $mastery[] = ["topic" => $row["ml_topic"], "attempts" => $attempts, "accuracy" => $acc, "level" => $level];
+    }
+
+    $accStmt = $pdo->prepare("
+        SELECT 
+            COUNT(*) AS attempts,
+            SUM(was_correct) AS correct_total,
+            SUM(CASE WHEN was_correct = 0 THEN 1 ELSE 0 END) AS incorrect_total,
+            AVG(response_seconds) AS avg_response_seconds
+        FROM user_attempts
+        WHERE user_id = ?
+    ");
+    $accStmt->execute([$userId]);
+    $accRow = $accStmt->fetch() ?: [];
+    $attempts = (int)($accRow["attempts"] ?? 0);
+    $correctTotal = (int)($accRow["correct_total"] ?? 0);
+    $incorrectTotal = (int)($accRow["incorrect_total"] ?? 0);
+    $accuracyPct = $attempts > 0 ? (int)round(($correctTotal / $attempts) * 100) : 0;
+    $avgResponse = $attempts > 0 ? round((float)($accRow["avg_response_seconds"] ?? 0), 1) : 0;
+
+    $leaderboard = $pdo->query("
+        SELECT u.username, us.revenue, us.xp
+        FROM user_state us
+        JOIN users u ON u.id = us.user_id
+        ORDER BY us.revenue DESC, us.xp DESC, u.username ASC
+        LIMIT 10
+    ")->fetchAll();
+
+    $activityStmt = $pdo->prepare("
+        SELECT event_type, message, created_at
+        FROM activity_log
+        WHERE user_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 12
+    ");
+    $activityStmt->execute([$userId]);
+    $activity = $activityStmt->fetchAll();
+
+    $badgesStmt = $pdo->prepare("
+        SELECT b.code, b.name, b.description, ub.earned_at
+        FROM user_badges ub
+        JOIN badges b ON b.id = ub.badge_id
+        WHERE ub.user_id = ?
+        ORDER BY ub.earned_at DESC, b.id DESC
+    ");
+    $badgesStmt->execute([$userId]);
+    $badges = $badgesStmt->fetchAll();
+
+    return [
+        "state" => [
+            "revenue" => (int)$state["revenue"],
+            "happiness" => (int)$state["happiness"],
+            "xp" => (int)$state["xp"],
+            "current_easy" => (int)$state["current_easy"],
+            "current_medium" => (int)$state["current_medium"],
+            "current_hard" => (int)$state["current_hard"]
+        ],
+        "districts" => $districts,
+        "mastery" => $mastery,
+        "accuracy_stats" => [
+            "attempts" => $attempts,
+            "correct_total" => $correctTotal,
+            "incorrect_total" => $incorrectTotal,
+            "accuracy_pct" => $accuracyPct,
+            "avg_response_seconds" => $avgResponse
+        ],
+        "leaderboard" => $leaderboard,
+        "activity" => $activity,
+        "badges" => $badges
+    ];
 }
 
-function district_building_counts($pdo, $user_id) {
-  ensure_tiles($pdo, $user_id);
-  $districts = ['central' => 0, 'industry' => 0, 'green' => 0, 'innovation' => 0];
-  $stmt = $pdo->prepare("SELECT x, COUNT(*) c FROM city_tiles WHERE user_id=? AND building <> 'empty' GROUP BY x");
-  $stmt->execute([$user_id]);
-  foreach ($stmt->fetchAll() as $row) {
-    $x = (int)$row['x'];
-    $count = (int)$row['c'];
-    if ($x <= 2) $districts['central'] += $count;
-    elseif ($x <= 4) $districts['industry'] += $count;
-    elseif ($x <= 7) $districts['green'] += $count;
-    else $districts['innovation'] += $count;
-  }
-  return $districts;
+bootstrap_schema($pdo);
+
+if ($action === "login") {
+    $data = json_input();
+    $username = trim((string)($data["username"] ?? ""));
+    if ($username === "" || strlen($username) > 50) respond(["error" => "Invalid username"], 400);
+    $userId = ensure_user($pdo, $username);
+    log_activity($pdo, $userId, "login", "Logged in as {$username}");
+    respond(["ok" => true, "user_id" => $userId, "username" => $username] + state_bundle($pdo, $userId));
 }
 
-function compute_city_stats($pdo, $user_id) {
-  $city = city_counts($pdo, $user_id);
-  $houses = $city['house'];
-  $factories = $city['factory'];
-  $parks = $city['park'];
-  $labs = $city['lab'];
+if ($action === "sign_out") respond(["ok" => true]);
 
-  $income = 5 + ($houses * 3) + ($factories * 6) + ($labs * 2) + max(0, intdiv($parks, 2));
-  $happiness = 50 + ($parks * 4) - ($factories * 3) + ($houses * 2) + ($labs * 3);
-  if ($happiness < 0) $happiness = 0;
-  if ($happiness > 100) $happiness = 100;
-
-  $stateStmt = $pdo->prepare("SELECT xp FROM user_state WHERE user_id=?");
-  $stateStmt->execute([$user_id]);
-  $xp = (int)$stateStmt->fetchColumn();
-  $level = max(1, 1 + intdiv($xp, 250));
-
-  $pdo->prepare("UPDATE user_state SET income_per_turn=?, happiness=?, level=? WHERE user_id=?")
-      ->execute([$income, $happiness, $level, $user_id]);
+if ($action === "get_state") {
+    $userId = (int)($_GET["user_id"] ?? 0);
+    if ($userId <= 0) respond(["error" => "Missing user_id"], 400);
+    respond(["ok" => true] + state_bundle($pdo, $userId));
 }
 
-function get_state_bundle($pdo, $user_id) {
-  ensure_starter_house($pdo, $user_id);
-  compute_city_stats($pdo, $user_id);
-  $stateStmt = $pdo->prepare("SELECT * FROM user_state WHERE user_id=?");
-  $stateStmt->execute([$user_id]);
-  $state = $stateStmt->fetch();
-
-  $city = city_counts($pdo, $user_id);
-  $districtBuildCounts = district_building_counts($pdo, $user_id);
-  $districtRules = district_rules($state, $city, $districtBuildCounts);
-
-  $badgesStmt = $pdo->prepare("SELECT b.code,b.name,b.description,ub.earned_at FROM user_badges ub JOIN badges b ON b.id=ub.badge_id WHERE ub.user_id=? ORDER BY ub.earned_at DESC");
-  $badgesStmt->execute([$user_id]);
-
-  $activityStmt = $pdo->prepare("SELECT event_type,message,created_at FROM activity_log WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT 12");
-  $activityStmt->execute([$user_id]);
-
-  $leaderboard = $pdo->query("SELECT u.username, us.revenue FROM user_state us JOIN users u ON u.id=us.user_id ORDER BY us.revenue DESC, u.username ASC LIMIT 10")->fetchAll();
-
-  return [
-    'state' => $state,
-    'city' => $city,
-    'districts' => $districtRules,
-    'unlocked' => unlocked_buildings($state, $city),
-    'badges' => $badgesStmt->fetchAll(),
-    'activity' => $activityStmt->fetchAll(),
-    'leaderboard' => $leaderboard,
-    'topic_progress' => get_topic_progress($pdo, $user_id),
-    'analytics' => get_learning_analytics($pdo, $user_id),
-  ];
+if ($action === "topic_mastery") {
+    $userId = (int)($_GET["user_id"] ?? 0);
+    if ($userId <= 0) respond(["error" => "Missing user_id"], 400);
+    respond(["ok" => true, "mastery" => state_bundle($pdo, $userId)["mastery"]]);
 }
 
-function choose_auto_building($state, $city, $newUnlocks) {
-  if (in_array('house', $newUnlocks, true)) return 'house';
-  if (in_array('lab', $newUnlocks, true)) return 'lab';
-  if (in_array('park', $newUnlocks, true)) return 'park';
-  if (in_array('factory', $newUnlocks, true)) return 'factory';
+if ($action === "next_task") {
+    $userId = (int)($_GET["user_id"] ?? 0);
+    $difficulty = normalize_difficulty($_GET["difficulty"] ?? "easy");
+    if ($userId <= 0) respond(["error" => "Missing user_id"], 400);
 
-  $houses = (int)($city['house'] ?? 0);
-  $factories = (int)($city['factory'] ?? 0);
-  $parks = (int)($city['park'] ?? 0);
-  $labs = (int)($city['lab'] ?? 0);
-  $tasks = (int)$state['tasks_correct'];
-  $ordering = (int)$state['ordering_correct'];
-  $code = (int)$state['code_correct'];
+    $progressCol = progress_column($difficulty);
+    $stmt = $pdo->prepare("SELECT {$progressCol} AS current_step FROM user_state WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $currentStep = max(1, (int)($stmt->fetchColumn() ?: 1));
 
-  if ($houses < 3) return 'house';
-  if ($tasks >= 2 && $factories < max(1, intdiv($houses + 1, 2))) return 'factory';
-  if ($ordering >= 1 && $parks < max(1, intdiv($houses + $factories, 3))) return 'park';
-  if ($code >= 1 && $labs < 1) return 'lab';
-  return 'house';
-}
+    $taskStmt = $pdo->prepare("SELECT * FROM tasks WHERE difficulty = ? AND order_index = ? ORDER BY task_id ASC LIMIT 1");
+    $taskStmt->execute([$difficulty, $currentStep]);
+    $task = $taskStmt->fetch();
 
-function find_slot_for_building($pdo, $user_id, $building) {
-  $ranges = [
-    'house' => [[0,2],[0,9]],
-    'factory' => [[3,4],[0,9]],
-    'park' => [[5,7],[0,9]],
-    'lab' => [[8,9],[0,9]],
-  ];
-  [$xr, $yr] = $ranges[$building] ?? [[0,9],[0,9]];
-  $stmt = $pdo->prepare("SELECT x,y FROM city_tiles WHERE user_id=? AND building='empty' AND x BETWEEN ? AND ? AND y BETWEEN ? AND ? ORDER BY y,x LIMIT 1");
-  $stmt->execute([$user_id, $xr[0], $xr[1], $yr[0], $yr[1]]);
-  $slot = $stmt->fetch();
-  if ($slot) return $slot;
+    if (!$task) {
+        $taskStmt = $pdo->prepare("SELECT * FROM tasks WHERE difficulty = ? ORDER BY order_index ASC, task_id ASC LIMIT 1");
+        $taskStmt->execute([$difficulty]);
+        $task = $taskStmt->fetch();
+    }
+    if (!$task) respond(["error" => "No task found"], 404);
 
-  $fallback = $pdo->prepare("SELECT x,y FROM city_tiles WHERE user_id=? AND building='empty' ORDER BY y,x LIMIT 1");
-  $fallback->execute([$user_id]);
-  return $fallback->fetch();
-}
-
-
-function ensure_starter_house($pdo, $user_id) {
-  ensure_tiles($pdo, $user_id);
-  $stmt = $pdo->prepare("SELECT COUNT(*) FROM city_tiles WHERE user_id=? AND building <> 'empty'");
-  $stmt->execute([$user_id]);
-  if ((int)$stmt->fetchColumn() > 0) return false;
-
-  $slot = find_slot_for_building($pdo, $user_id, 'house');
-  if (!$slot) return false;
-
-  $pdo->prepare("UPDATE city_tiles SET building='house', blevel=1 WHERE user_id=? AND x=? AND y=?")
-      ->execute([$user_id, (int)$slot['x'], (int)$slot['y']]);
-
-  log_event($pdo, $user_id, 'build', 'Starter house placed in Central District.', [
-    'building' => 'house',
-    'x' => (int)$slot['x'],
-    'y' => (int)$slot['y'],
-    'starter' => true
-  ]);
-  return true;
-}
-
-function auto_place_building($pdo, $user_id, $building) {
-  ensure_tiles($pdo, $user_id);
-  if ($building === 'lab') {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM city_tiles WHERE user_id=? AND building='lab'");
-    $stmt->execute([$user_id]);
-    if ((int)$stmt->fetchColumn() >= 1) return false;
-  }
-
-  $slot = find_slot_for_building($pdo, $user_id, $building);
-  if (!$slot) return false;
-  $pdo->prepare("UPDATE city_tiles SET building=?, blevel=1 WHERE user_id=? AND x=? AND y=?")
-      ->execute([$building, $user_id, (int)$slot['x'], (int)$slot['y']]);
-  log_event($pdo, $user_id, 'build', 'Auto-placed '.ucfirst($building).' in the skyline.', ['building' => $building, 'x' => (int)$slot['x'], 'y' => (int)$slot['y']]);
-  return true;
-}
-
-function evaluate_answer($taskRow, $data, $correctPayload) {
-  $taskType = $taskRow['task_type'];
-  $answerRaw = $data['answer'] ?? '';
-  if ($taskType === 'mcq' || $taskType === 'code_mcq') {
-    return trim((string)$answerRaw) === trim((string)($correctPayload['answer'] ?? ''));
-  }
-  if ($taskType === 'ordering') {
-    $ansArr = is_string($answerRaw) ? json_decode($answerRaw, true) : $answerRaw;
-    $rightArr = $correctPayload['answer'] ?? [];
-    return is_array($ansArr) && is_array($rightArr) && $ansArr === $rightArr;
-  }
-  if ($taskType === 'match') {
-    $ansObj = is_string($answerRaw) ? json_decode($answerRaw, true) : $answerRaw;
-    $rightObj = $correctPayload['answer'] ?? [];
-    return is_array($ansObj) && is_array($rightObj) && $ansObj === $rightObj;
-  }
-  return false;
-}
-
-if ($action === 'login') {
-  $data = json_input();
-  $username = trim((string)($data['username'] ?? ''));
-  if ($username === '' || strlen($username) > 50) respond(['error' => 'Invalid username'], 400);
-  $user_id = ensure_user($pdo, $username);
-  ensure_tiles($pdo, $user_id);
-  ensure_learning_rows($pdo, $user_id);
-  log_event($pdo, $user_id, 'login', 'Logged in as '.$username);
-  respond(['ok' => true, 'user_id' => $user_id] + get_state_bundle($pdo, $user_id));
-}
-
-if ($action === 'init_map') {
-  $user_id = (int)($_GET['user_id'] ?? 0);
-  if ($user_id <= 0) respond(['error' => 'Missing user_id'], 400);
-  ensure_tiles($pdo, $user_id);
-  ensure_learning_rows($pdo, $user_id);
-  ensure_learning_rows($pdo, $user_id);
-  respond(['ok' => true] + get_state_bundle($pdo, $user_id));
-}
-
-if ($action === 'get_state') {
-  $user_id = (int)($_GET['user_id'] ?? 0);
-  if ($user_id <= 0) respond(['error' => 'Missing user_id'], 400);
-  respond(['ok' => true] + get_state_bundle($pdo, $user_id));
-}
-
-if ($action === "next_crisis") {
-
-  $user_id = (int)($_GET['user_id'] ?? 0);
-
-  if ($user_id <= 0) {
-    http_response_code(400);
-    echo json_encode(["error" => "Missing user_id"]);
-    exit;
-  }
-
-  // Read previous crisis/task so we can avoid repeating the same one
-  $stateStmt = $pdo->prepare("
-    SELECT last_crisis_id, last_task_id
-    FROM user_state
-    WHERE user_id=?
-  ");
-  $stateStmt->execute([$user_id]);
-  $state = $stateStmt->fetch(PDO::FETCH_ASSOC);
-
-  $lastCrisisId = (int)($state['last_crisis_id'] ?? 0);
-  $lastTaskId   = (int)($state['last_task_id'] ?? 0);
-
-  /* ------------------------------
-     Pick a different crisis if possible
-  ------------------------------ */
-  $crisisStmt = $pdo->prepare("
-    SELECT * FROM crises
-    WHERE id <> ?
-    ORDER BY RAND()
-    LIMIT 1
-  ");
-  $crisisStmt->execute([$lastCrisisId]);
-  $crisis = $crisisStmt->fetch(PDO::FETCH_ASSOC);
-
-  if (!$crisis) {
-    $crisis = $pdo->query("
-      SELECT * FROM crises
-      ORDER BY RAND()
-      LIMIT 1
-    ")->fetch(PDO::FETCH_ASSOC);
-  }
-
-  if (!$crisis) {
-    http_response_code(500);
-    echo json_encode(["error" => "No crises found"]);
-    exit;
-  }
-
-  /* ------------------------------
-     Pick a different task if possible
-     NEW SCHEMA: uses task_id, not crisis_id
-  ------------------------------ */
-  $crisisTopic = strtolower(trim((string)($crisis["ml_topic"] ?? "")));
-
-$crisisTopic = strtolower(trim((string)($crisis["ml_topic"] ?? "")));
-
-$taskStmt = $pdo->prepare("
-  SELECT * FROM tasks
-  WHERE LOWER(TRIM(ml_topic)) = ?
-    AND task_id <> ?
-  ORDER BY RAND()
-  LIMIT 1
-");
-$taskStmt->execute([$crisisTopic, $lastTaskId]);
-$task = $taskStmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$task) {
-  $taskStmt = $pdo->prepare("
-    SELECT * FROM tasks
-    WHERE LOWER(TRIM(ml_topic)) = ?
-    ORDER BY RAND()
-    LIMIT 1
-  ");
-  $taskStmt->execute([$crisisTopic]);
-  $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
-}
-
-if (!$task) {
-  $task = $pdo->query("SELECT * FROM tasks ORDER BY RAND() LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-}
-// final fallback: any task at all
-if (!$task) {
-  $task = $pdo->query("
-    SELECT * FROM tasks
-    ORDER BY RAND()
-    LIMIT 1
-  ")->fetch(PDO::FETCH_ASSOC);
-}
-
-  if (!$task) {
-    http_response_code(500);
-    echo json_encode(["error" => "No tasks found"]);
-    exit;
-  }
-
-  /* ------------------------------
-     Decode TEXT/JSON columns
-  ------------------------------ */
-  $options = $task["options"] ? json_decode($task["options"], true) : null;
-  $correct_answer = $task["correct_answer"] ? json_decode($task["correct_answer"], true) : null;
-  $context = $task["context"] ? json_decode($task["context"], true) : null;
-
-  if ($task["options"] && $options === null && json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(500);
-    echo json_encode([
-      "error" => "Invalid options JSON",
-      "task_id" => (int)$task["task_id"]
+    log_activity($pdo, $userId, "task_start", "Started a {$difficulty} task on {$task['ml_topic']}", [
+        "difficulty" => $difficulty,
+        "topic" => $task["ml_topic"],
+        "order_index" => (int)$task["order_index"]
     ]);
-    exit;
-  }
 
-  if ($task["correct_answer"] && $correct_answer === null && json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(500);
-    echo json_encode([
-      "error" => "Invalid correct_answer JSON",
-      "task_id" => (int)$task["task_id"]
+    respond([
+        "ok" => true,
+        "task" => [
+            "task_id" => (int)$task["task_id"],
+            "ml_topic" => $task["ml_topic"],
+            "task_type" => $task["task_type"],
+            "prompt" => $task["prompt"],
+            "options" => json_decode($task["options"], true),
+            "correct_answer" => json_decode($task["correct_answer"], true),
+            "context" => json_decode($task["context"], true),
+            "reward_points" => (int)round((int)$task["reward_points"] * reward_multiplier($difficulty)),
+            "difficulty" => $difficulty,
+            "order_index" => (int)$task["order_index"]
+        ]
     ]);
-    exit;
-  }
-
-  if ($task["context"] && $context === null && json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(500);
-    echo json_encode([
-      "error" => "Invalid context JSON",
-      "task_id" => (int)$task["task_id"]
-    ]);
-    exit;
-  }
-
-  /* ------------------------------
-     Save last crisis/task
-  ------------------------------ */
-  $pdo->prepare("
-    UPDATE user_state
-    SET last_crisis_id=?, last_task_id=?
-    WHERE user_id=?
-  ")->execute([
-    (int)$crisis["id"],
-    (int)$task["task_id"],
-    $user_id
-  ]);
-
-  ensure_learning_rows($pdo, $user_id);
-  $pdo->prepare("UPDATE user_learning_analytics SET challenges_started = challenges_started + 1 WHERE user_id=?")->execute([$user_id]);
-  log_event($pdo, $user_id, "narration", "Crisis: " . $crisis["title"]);
-
-  /* ------------------------------
-     Build task payload for frontend
-  ------------------------------ */
-  $payload = [
-    "task_id"       => (int)$task["task_id"],
-    "prompt"        => $task["prompt"],
-    "task_type"     => $task["task_type"],
-    "reward_points" => (int)$task["reward_points"],
-    "context"       => $context
-  ];
-
-  if ($task["task_type"] === "mcq" || $task["task_type"] === "scenario") {
-    $payload["options"] = $options ?? [];
-  }
-
-  if ($task["task_type"] === "code_mcq") {
-    $payload["options"] = $options ?? [];
-    $payload["code"] = is_array($context) ? ($context["code"] ?? "") : "";
-  }
-
-  if ($task["task_type"] === "ordering") {
-    $payload["items"] = $options ?? [];
-  }
-
-  if ($task["task_type"] === "match") {
-    $payload["left"] = is_array($correct_answer) ? array_keys($correct_answer) : [];
-    $payload["right"] = is_array($correct_answer) ? array_values($correct_answer) : [];
-  }
-
-  echo json_encode([
-    "ok" => true,
-    "crisis" => $crisis,
-    "task" => $payload
-  ]);
-  exit;
 }
 
 if ($action === "submit_answer") {
-  $data = json_input();
+    $data = json_input();
+    $userId = (int)($data["user_id"] ?? 0);
+    $taskId = (int)($data["task_id"] ?? 0);
+    $answer = $data["answer"] ?? null;
+    if ($userId <= 0 || $taskId <= 0) respond(["error" => "Missing params"], 400);
 
-  $user_id = (int)($data["user_id"] ?? 0);
-  $task_id = (int)($data["task_id"] ?? 0);
-  $answer = $data["answer"] ?? null;
-  $use_booster = (bool)($data["use_booster"] ?? false);
-  $response_seconds = max(0, (int)($data["response_seconds"] ?? 0));
-  $lesson_acknowledged = !empty($data["lesson_acknowledged"]);
-  $hint_used = !empty($data["hint_used"]);
+    $taskStmt = $pdo->prepare("SELECT * FROM tasks WHERE task_id = ?");
+    $taskStmt->execute([$taskId]);
+    $task = $taskStmt->fetch();
+    if (!$task) respond(["error" => "Task not found"], 404);
 
-  if ($user_id <= 0 || $task_id <= 0) {
-    http_response_code(400);
-    echo json_encode(["error" => "Missing params"]);
-    exit;
-  }
+    $difficulty = normalize_difficulty($task["difficulty"]);
+    $correctAnswer = json_decode($task["correct_answer"], true);
+    $context = json_decode($task["context"], true);
+    $isCorrect = trim((string)$answer) === trim((string)$correctAnswer);
+    $reward = (int)round((int)$task["reward_points"] * reward_multiplier($difficulty));
+    $happinessGain = $difficulty === "hard" ? 6 : ($difficulty === "medium" ? 4 : 2);
 
-  ensure_learning_rows($pdo, $user_id);
+    $stateStmt = $pdo->prepare("SELECT * FROM user_state WHERE user_id = ?");
+    $stateStmt->execute([$userId]);
+    $state = $stateStmt->fetch();
+    if (!$state) respond(["error" => "User state missing"], 404);
 
-  $taskStmt = $pdo->prepare("SELECT * FROM tasks WHERE task_id=?");
-  $taskStmt->execute([$task_id]);
-  $t = $taskStmt->fetch();
+    $responseSeconds = max(0, (int)($data["response_seconds"] ?? 0));
 
-  if (!$t) {
-    http_response_code(404);
-    echo json_encode(["error" => "Task not found"]);
-    exit;
-  }
+    $pdo->prepare("
+        INSERT INTO user_topic_stats (user_id, ml_topic, attempts, correct_count)
+        VALUES (?, ?, 1, ?)
+        ON DUPLICATE KEY UPDATE attempts = attempts + 1, correct_count = correct_count + VALUES(correct_count)
+    ")->execute([$userId, $task["ml_topic"], $isCorrect ? 1 : 0]);
 
-  $options = $t["options"] ? json_decode($t["options"], true) : null;
-  $correct_answer = $t["correct_answer"] ? json_decode($t["correct_answer"], true) : null;
-  $context = $t["context"] ? json_decode($t["context"], true) : null;
+    $pdo->prepare("INSERT INTO user_attempts (user_id, task_id, ml_topic, difficulty, was_correct, response_seconds) VALUES (?, ?, ?, ?, ?, ?)")
+        ->execute([$userId, $taskId, $task["ml_topic"], $difficulty, $isCorrect ? 1 : 0, $responseSeconds]);
 
-  $right = false;
+    if ($isCorrect) {
+        $progressCol = progress_column($difficulty);
+        $buildingCol = match ($difficulty) {
+            "medium" => "factories",
+            "hard" => "labs",
+            default => "houses"
+        };
+        $pdo->prepare("
+            UPDATE user_state
+            SET revenue = revenue + ?,
+                happiness = LEAST(100, happiness + ?),
+                xp = xp + ?,
+                {$progressCol} = {$progressCol} + 1,
+                {$buildingCol} = {$buildingCol} + 1
+            WHERE user_id = ?
+        ")->execute([$reward, $happinessGain, $reward, $userId]);
 
-  if ($t["task_type"] === "mcq" || $t["task_type"] === "scenario" || $t["task_type"] === "code_mcq") {
-    $right = trim((string)$answer) === trim((string)$correct_answer);
-  }
+        if ((int)$state["revenue"] + $reward >= 200 && (int)$state["parks"] < 1) {
+            $pdo->prepare("UPDATE user_state SET parks = parks + 1 WHERE user_id = ?")->execute([$userId]);
+        }
 
-  if ($t["task_type"] === "ordering") {
-    $ansArr = is_string($answer) ? json_decode($answer, true) : $answer;
-    if (is_array($ansArr) && is_array($correct_answer)) {
-      $right = ($ansArr === $correct_answer);
+        log_activity($pdo, $userId, "task_correct", "Correct answer in {$task['ml_topic']} (+{$reward} revenue)", [
+            "difficulty" => $difficulty,
+            "topic" => $task["ml_topic"],
+            "reward" => $reward,
+            "happiness_gain" => $happinessGain
+        ]);
+
+        $newBadge = maybe_award_course_badge($pdo, $userId, $difficulty);
+        if ($newBadge) {
+            log_activity($pdo, $userId, "badge", "Earned badge: {$newBadge['name']}", ["badge_code" => $newBadge["code"]]);
+        }
+
+        respond(["ok" => true, "correct" => true, "reward" => $reward, "happiness_gain" => $happinessGain, "context" => $context, "new_badge" => $newBadge] + state_bundle($pdo, $userId));
+    } else {
+        $penalties = penalties_for($difficulty);
+        $pdo->prepare("
+            UPDATE user_state
+            SET revenue = GREATEST(0, revenue - ?),
+                happiness = GREATEST(0, happiness - ?),
+                xp = GREATEST(0, xp - ?)
+            WHERE user_id = ?
+        ")->execute([$penalties["revenue"], $penalties["happiness"], $penalties["xp"], $userId]);
+
+        log_activity($pdo, $userId, "task_wrong", "Wrong answer in {$task['ml_topic']} (-{$penalties['revenue']} revenue)", [
+            "difficulty" => $difficulty,
+            "topic" => $task["ml_topic"],
+            "penalty_revenue" => $penalties["revenue"],
+            "penalty_happiness" => $penalties["happiness"]
+        ]);
+
+        respond([
+            "ok" => true,
+            "correct" => false,
+            "penalty_revenue" => $penalties["revenue"],
+            "penalty_happiness" => $penalties["happiness"],
+            "penalty_xp" => $penalties["xp"],
+            "correct_answer" => $correctAnswer,
+            "context" => $context
+        ] + state_bundle($pdo, $userId));
     }
-  }
-
-  if ($t["task_type"] === "match") {
-    $ansObj = is_string($answer) ? json_decode($answer, true) : $answer;
-    if (is_array($ansObj) && is_array($correct_answer)) {
-      $right = ($ansObj == $correct_answer);
-    }
-  }
-
-  $stateStmt = $pdo->prepare("SELECT * FROM user_state WHERE user_id=?");
-  $stateStmt->execute([$user_id]);
-  $s = $stateStmt->fetch();
-
-  if ($use_booster) {
-    if ((int)$s["booster_tokens"] <= 0) {
-      echo json_encode(["ok" => false, "error" => "No boosters left"]);
-      exit;
-    }
-    $pdo->prepare("UPDATE user_state SET booster_tokens = booster_tokens - 1 WHERE user_id=?")
-        ->execute([$user_id]);
-    log_event($pdo, $user_id, "booster", "Used a booster");
-  }
-
-  $pdo->prepare("
-    UPDATE user_learning_analytics
-    SET attempts_total = attempts_total + 1,
-        correct_total = correct_total + ?,
-        incorrect_total = incorrect_total + ?,
-        hints_viewed = hints_viewed + ?,
-        boosters_used = boosters_used + ?,
-        lessons_acknowledged = lessons_acknowledged + ?,
-        total_response_seconds = total_response_seconds + ?,
-        last_answered_at = NOW()
-    WHERE user_id=?
-  ")->execute([
-    $right ? 1 : 0,
-    $right ? 0 : 1,
-    $hint_used ? 1 : 0,
-    $use_booster ? 1 : 0,
-    $lesson_acknowledged ? 1 : 0,
-    $response_seconds,
-    $user_id
-  ]);
-
-  if ($right) {
-    $reward = (int)$t["reward_points"];
-    if ($use_booster) {
-      $reward += (int)round($reward * 0.25);
-    }
-
-    $pdo->prepare("UPDATE user_state SET revenue = revenue + ?, xp = xp + ?, tasks_correct = tasks_correct + 1 WHERE user_id=?")
-        ->execute([$reward, $reward, $user_id]);
-
-    if ($t["task_type"] === "ordering") {
-      $pdo->prepare("UPDATE user_state SET ordering_correct = ordering_correct + 1 WHERE user_id=?")->execute([$user_id]);
-    }
-    if ($t["task_type"] === "code_mcq") {
-      $pdo->prepare("UPDATE user_state SET code_correct = code_correct + 1 WHERE user_id=?")->execute([$user_id]);
-    }
-
-    $topic = is_array($context) ? trim((string)($context["concept"] ?? $t["ml_topic"] ?? "")) : trim((string)($t["ml_topic"] ?? ""));
-    record_topic_mastery($pdo, $user_id, $topic);
-
-    log_event($pdo, $user_id, "earn_points", "Earned +$reward revenue for correct answer", [
-      "task_id" => $task_id,
-      "topic" => $topic,
-      "response_seconds" => $response_seconds
-    ]);
-
-    echo json_encode([
-      "ok" => true,
-      "correct" => true,
-      "correct_answer" => is_string($correct_answer) ? trim($correct_answer, '"') : $correct_answer,
-      "context" => $context
-    ] + get_state_bundle($pdo, $user_id));
-    exit;
-  } else {
-    log_event($pdo, $user_id, "mistake", "Incorrect ML decision. Try again.", [
-      "task_id" => $task_id,
-      "response_seconds" => $response_seconds
-    ]);
-
-    echo json_encode([
-      "ok" => true,
-      "correct" => false,
-      "correct_answer" => is_string($correct_answer) ? trim($correct_answer, '"') : $correct_answer,
-      "context" => $context
-    ] + get_state_bundle($pdo, $user_id));
-    exit;
-  }
 }
 
-if ($action === 'end_turn') {
-  $user_id = (int)($_GET['user_id'] ?? 0);
-  if ($user_id <= 0) respond(['error' => 'Missing user_id'], 400);
-  compute_city_stats($pdo, $user_id);
-  $stmt = $pdo->prepare("SELECT income_per_turn FROM user_state WHERE user_id=?");
-  $stmt->execute([$user_id]);
-  $income = (int)$stmt->fetchColumn();
-  $pdo->prepare("UPDATE user_state SET revenue = revenue + ?, xp = xp + ? WHERE user_id=?")
-      ->execute([$income, max(1, intdiv($income, 2)), $user_id]);
-  log_event($pdo, $user_id, 'turn', 'End turn: +'.$income.' revenue from city income.');
-  respond(['ok' => true, 'income' => $income] + get_state_bundle($pdo, $user_id));
-}
-
-respond(['error' => 'Unknown action'], 404);
+respond(["error" => "Unknown action"], 404);
+?>

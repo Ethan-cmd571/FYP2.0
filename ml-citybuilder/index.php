@@ -1,143 +1,120 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ML CityBuilder</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ML CityBuilder - Curriculum Structure</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="shell">
-    <header class="hero">
+  <div class="app-shell">
+    <header class="topbar">
       <div>
-        <p class="eyebrow">Final Year Project Prototype</p>
         <h1>ML CityBuilder</h1>
-        <p class="sub">Solve machine learning crises, unlock districts, and watch your skyline grow automatically.</p>
+        <p class="sub">Curriculum structure version: foundations → intermediate → advanced</p>
       </div>
-      <div class="hero-badge">No tile placement needed</div>
+      <button id="btnLogout" class="ghost hidden">Sign out</button>
     </header>
 
-    <section class="panel login-panel" id="loginCard">
-      <div>
-        <h2>Start game</h2>
-        <p class="muted">Prototype login only. Progress is stored in MySQL.</p>
-      </div>
-      <div class="login-row">
-        <input id="username" placeholder="Enter a username" />
+    <section id="loginCard" class="panel login-card">
+      <h2>Login</h2>
+      <p>Enter a username to begin your structured machine-learning curriculum.</p>
+      <div class="row">
+        <input id="username" type="text" placeholder="Enter username" maxlength="50" />
         <button id="btnLogin">Start</button>
+      </div>
+      <p id="statusText" class="muted"></p>
+    </section>
+
+    <section class="grid two-col">
+      <div class="panel">
+        <h2>Curriculum Progress</h2>
+        <div class="stats">
+          <div class="stat-card"><span>Revenue</span><strong id="statRevenue">0</strong></div>
+          <div class="stat-card"><span>Happiness</span><strong id="statHappiness">50</strong></div>
+          <div class="stat-card"><span>XP</span><strong id="statXP">0</strong></div>
+        </div>
+
+        <div class="row difficulty-row">
+          <button class="difficulty-btn active" data-difficulty="easy">Foundations</button>
+          <button class="difficulty-btn" data-difficulty="medium">Intermediate</button>
+          <button class="difficulty-btn" data-difficulty="hard">Advanced</button>
+          <button id="btnTask" disabled>New Curriculum Task</button>
+        </div>
+
+        <div id="districtGrid" class="district-grid"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Topic Mastery</h2>
+        <p class="muted">See strengths and weaknesses across curriculum topics.</p>
+        <div id="masteryGrid" class="mastery-grid"></div>
       </div>
     </section>
 
-    <main class="layout">
-      <section class="panel dashboard-panel">
-        <div class="section-head">
-          <h2>City Dashboard</h2>
-          <span class="mini" id="statusText">Log in to begin</span>
+    <section class="grid three-col analytics-row">
+      <div class="panel">
+        <h2>Accuracy Statistics</h2>
+        <div class="mini-stats">
+          <div class="mini-stat"><span>Overall Accuracy</span><strong id="statAccuracyPct">0%</strong></div>
+          <div class="mini-stat"><span>Total Attempts</span><strong id="statAttempts">0</strong></div>
+          <div class="mini-stat"><span>Correct</span><strong id="statCorrect">0</strong></div>
+          <div class="mini-stat"><span>Incorrect</span><strong id="statIncorrect">0</strong></div>
+          <div class="mini-stat"><span>Avg Response</span><strong id="statAvgResponse">0s</strong></div>
         </div>
-        <div class="stats-grid">
-          <div class="stat-card"><span>Revenue</span><strong id="revenue">0</strong></div>
-          <div class="stat-card"><span>Income / turn</span><strong id="income">0</strong></div>
-          <div class="stat-card"><span>Happiness</span><strong id="happiness">0</strong></div>
-          <div class="stat-card"><span>Level</span><strong id="level">1</strong></div>
-          <div class="stat-card"><span>Boosters</span><strong id="boosters">0</strong></div>
-          <div class="stat-card"><span>Correct tasks</span><strong id="tasksCorrect">0</strong></div>
-        </div>
-        <div class="action-row">
-          <button id="btnTurn" disabled>End Turn (+income)</button>
-          <button id="btnCrisis" disabled>New ML Challenge</button>
-        </div>
-      </section>
+      </div>
 
-      <section class="panel skyline-panel wide">
-        <div class="section-head">
-          <h2>City Growth</h2>
-          <span class="mini" id="citySummary">Your skyline will expand as you answer correctly.</span>
-        </div>
-        <div id="skylineScene" class="skyline-scene">
-          <div class="skyline-sun"></div>
-          <div class="skyline-stars"></div>
-          <div class="skyline-ground"></div>
-          <div id="districtMarkers" class="district-markers"></div>
-          <div id="skylineBuildings" class="skyline-buildings"></div>
-        </div>
-      </section>
+      <div class="panel">
+        <h2>Leaderboard</h2>
+        <div id="leaderboardList" class="stack-list empty-state">Complete some tasks to populate the leaderboard.</div>
+      </div>
 
-      <section class="panel district-panel wide">
-        <div class="section-head">
-          <h2>Districts</h2>
-          <span class="mini">Each district unlocks with your ML progress</span>
-        </div>
-        <div id="districts" class="district-grid"></div>
-      </section>
+      <div class="panel">
+        <h2>Activity Stream</h2>
+        <div id="activityList" class="stack-list empty-state">Your recent activity will appear here.</div>
+      </div>
+    </section>
 
-      <section class="panel">
-        <div class="section-head">
-          <h2>Unlocked Buildings</h2>
-          <span class="mini">Buildings are auto-placed into districts</span>
-        </div>
-        <div id="unlockedBuildings" class="chip-list"></div>
-      </section>
+    <section class="panel">
+      <div class="section-head">
+        <h2>Badges</h2>
+        <span class="muted">Earn a badge for completing each course tier</span>
+      </div>
+      <div id="badgeList" class="badge-grid empty-state">Complete a full course to earn badges.</div>
+    </section>
 
+    <section id="taskBox" class="panel hidden">
+      <div class="section-head">
+        <h2>Lesson → Question → Explanation</h2>
+        <span id="taskStage" class="muted">Stage 1 of 3 • Read the lesson</span>
+      </div>
 
-      <section class="panel">
-        <div class="section-head">
-          <h2>ML Knowledge Progress</h2>
-          <span class="mini">Topics you are mastering</span>
+      <div class="lesson-panel">
+        <div class="section-head compact">
+          <h3 id="lessonConcept">Mini-lesson</h3>
+          <span id="lessonCountdown" class="muted">Question unlocks in 30s</span>
         </div>
-        <ul id="mlTopics" class="stack-list"></ul>
-      </section>
+        <p id="lessonMeta" class="muted"></p>
+        <div id="lessonBody" class="lesson-copy">Press <strong>New Curriculum Task</strong> to load the next lesson.</div>
+      </div>
 
-      <section class="panel">
-        <div class="section-head">
-          <h2>Learning Analytics</h2>
-          <span class="mini">Automatic engagement + performance tracking</span>
+      <div id="questionPanel" class="question-panel challenge-locked">
+        <p id="taskPrompt" class="task-prompt">Read the mini-lesson before answering.</p>
+        <div id="taskOptions"></div>
+        <div class="row">
+          <button id="btnSubmit" disabled>Submit Answer</button>
         </div>
-        <div id="analyticsGrid" class="analytics-grid"></div>
-      </section>
+        <p id="feedback" class="feedback hidden"></p>
+      </div>
 
-      <section class="panel">
-        <div class="section-head">
-          <h2>Badges</h2>
-          <span class="mini">Earned through progress</span>
+      <div id="explanationPanel" class="explanation-panel hidden">
+        <div class="section-head compact">
+          <h3>Explanation</h3>
+          <span class="muted">Review what the curriculum task was testing</span>
         </div>
-        <ul id="badges" class="stack-list"></ul>
-      </section>
-
-      <section class="panel">
-        <div class="section-head">
-          <h2>Leaderboard</h2>
-          <span class="mini">Top city revenues</span>
-        </div>
-        <ol id="leaderboard" class="stack-list ordered"></ol>
-      </section>
-
-      <section class="panel task-panel wide">
-        <div class="section-head">
-          <h2>Crisis + ML Task</h2>
-          <span class="mini">Correct answers unlock buildings and districts</span>
-        </div>
-        <div id="crisisBox" class="crisis-box">
-          <p class="muted">Press <strong>New ML Challenge</strong> to receive a city crisis.</p>
-        </div>
-        <div id="taskBox" class="task-box hidden">
-          <p id="taskPrompt" class="task-prompt"></p>
-          <div id="taskOptions"></div>
-          <div class="action-row submit-row">
-            <label class="chk"><input type="checkbox" id="useBooster" /> Use Booster (+25% if correct)</label>
-            <button id="btnSubmit">Submit Answer</button>
-          </div>
-          <p id="feedback" class="feedback"></p>
-        </div>
-      </section>
-
-      <section class="panel wide">
-        <div class="section-head">
-          <h2>Activity Stream</h2>
-          <span class="mini">Latest events in your city</span>
-        </div>
-        <ul id="activity" class="stack-list"></ul>
-      </section>
-    </main>
+        <div id="explanationContent"></div>
+      </div>
+    </section>
   </div>
 
   <script src="app.js"></script>

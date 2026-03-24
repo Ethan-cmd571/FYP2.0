@@ -1,17 +1,26 @@
 <?php
-// config.php
-$DB_HOST = "localhost";
-$DB_NAME = "ml_citybuilder";
-$DB_USER = "root";
-$DB_PASS = ""; // default XAMPP
+$host = "localhost";
+$dbname = "ml_citybuilder";
+$username = "root";
+$password = "";
 
 try {
-  $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-  ]);
+    $pdo = new PDO(
+        "mysql:host=$host;dbname=$dbname;charset=utf8mb4",
+        $username,
+        $password,
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]
+    );
 } catch (Exception $e) {
-  http_response_code(500);
-  echo "DB connection failed.";
-  exit;
+    http_response_code(500);
+    header("Content-Type: application/json");
+    echo json_encode([
+        "error" => "DB connection failed",
+        "details" => $e->getMessage()
+    ]);
+    exit;
 }
+?>
