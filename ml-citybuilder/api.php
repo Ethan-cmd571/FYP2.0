@@ -46,6 +46,107 @@ function progress_column(string $difficulty): string {
     };
 }
 
+
+function task_looks_code_based(array|string $taskOrPrompt, ?array $context = null): bool {
+    $prompt = is_array($taskOrPrompt) ? (string)($taskOrPrompt["prompt"] ?? "") : (string)$taskOrPrompt;
+    $context = is_array($taskOrPrompt) ? (json_decode((string)($taskOrPrompt["context"] ?? ""), true) ?: []) : ($context ?? []);
+
+    $haystack = strtolower($prompt . " " . json_encode($context));
+    $codeSignals = [
+        "import ", "from sklearn", "train_test_split", "fit(", "predict(", "transform(",
+        "logisticregression", "decisiontree", "randomforest", "kmeans", "classification_report",
+        "confusion_matrix", "df[", "iloc[", "loc[", "x_train", "x_test", "y_train", "y_test",
+        "model.", ".fit", ".predict", "plt.", "np.", "pd.", "axis=1", "drop(", "read_csv(",
+        "def ", "return ", "for ", "while ", "if ", "elif ", "else:"
+    ];
+
+    foreach ($codeSignals as $signal) {
+        if (str_contains($haystack, $signal)) {
+            return true;
+        }
+    }
+
+    $hasFormattingHints = str_contains($prompt, "\n") || preg_match('/[`=\[\]\(\){}._]/', $prompt);
+    return (bool)$hasFormattingHints;
+}
+
+function mastery_level(int $accuracy): string {
+    return $accuracy >= 75 ? "strong" : ($accuracy >= 50 ? "medium" : "weak");
+}
+
+function compute_code_mastery(PDO $pdo, int $userId): array {
+    $stmt = $pdo->prepare("
+        SELECT ua.ml_topic, ua.was_correct, ua.response_seconds, t.prompt, t.context
+        FROM user_attempts ua
+        JOIN tasks t ON t.task_id = ua.task_id
+        WHERE ua.user_id = ?
+        ORDER BY ua.id ASC
+    ");
+    $stmt->execute([$userId]);
+
+    $topics = [];
+    $attempts = 0;
+    $correctTotal = 0;
+    $responseTotal = 0.0;
+
+    foreach ($stmt->fetchAll() as $row) {
+        $context = json_decode((string)($row["context"] ?? ""), true) ?: [];
+        if (!task_looks_code_based((string)$row["prompt"], $context)) {
+            continue;
+        }
+
+        $topic = (string)$row["ml_topic"];
+        $attempts++;
+        $correct = (int)$row["was_correct"];
+        $correctTotal += $correct;
+        $responseTotal += (int)$row["response_seconds"];
+
+        if (!isset($topics[$topic])) {
+            $topics[$topic] = [
+                "topic" => $topic,
+                "attempts" => 0,
+                "correct_total" => 0,
+                "avg_response_seconds" => 0
+            ];
+        }
+
+        $topics[$topic]["attempts"]++;
+        $topics[$topic]["correct_total"] += $correct;
+        $topics[$topic]["avg_response_seconds"] += (int)$row["response_seconds"];
+    }
+
+    $topicRows = [];
+    foreach ($topics as $topic => $row) {
+        $topicAttempts = max(1, (int)$row["attempts"]);
+        $accuracy = (int)round(((int)$row["correct_total"] / $topicAttempts) * 100);
+        $topicRows[] = [
+            "topic" => $topic,
+            "attempts" => (int)$row["attempts"],
+            "accuracy" => $accuracy,
+            "avg_response_seconds" => round(((float)$row["avg_response_seconds"]) / $topicAttempts, 1),
+            "level" => mastery_level($accuracy)
+        ];
+    }
+
+    usort($topicRows, function (array $a, array $b): int {
+        return [$b["accuracy"], $b["attempts"], $a["topic"]] <=> [$a["accuracy"], $a["attempts"], $b["topic"]];
+    });
+
+    $accuracyPct = $attempts > 0 ? (int)round(($correctTotal / $attempts) * 100) : 0;
+    $avgResponse = $attempts > 0 ? round($responseTotal / $attempts, 1) : 0;
+
+    return [
+        "summary" => [
+            "attempts" => $attempts,
+            "correct_total" => $correctTotal,
+            "accuracy_pct" => $accuracyPct,
+            "avg_response_seconds" => $avgResponse,
+            "level" => mastery_level($accuracyPct)
+        ],
+        "topics" => $topicRows
+    ];
+}
+
 function safe_exec(PDO $pdo, string $sql): void {
     try { $pdo->exec($sql); } catch (Throwable $e) {}
 }
@@ -223,6 +324,7 @@ function state_bundle(PDO $pdo, int $userId): array {
         ],
         "districts" => $districts,
         "mastery" => $mastery,
+        "code_mastery" => compute_code_mastery($pdo, $userId),
         "accuracy_stats" => [
             "attempts" => $attempts,
             "correct_total" => $correctTotal,
@@ -285,7 +387,8 @@ if ($action === "next_task") {
     log_activity($pdo, $userId, "task_start", "Started a {$difficulty} task on {$task['ml_topic']}", [
         "difficulty" => $difficulty,
         "topic" => $task["ml_topic"],
-        "order_index" => (int)$task["order_index"]
+        "order_index" => (int)$task["order_index"],
+            "is_code_task" => task_looks_code_based($task)
     ]);
 
     respond([
@@ -300,7 +403,8 @@ if ($action === "next_task") {
             "context" => json_decode($task["context"], true),
             "reward_points" => (int)round((int)$task["reward_points"] * reward_multiplier($difficulty)),
             "difficulty" => $difficulty,
-            "order_index" => (int)$task["order_index"]
+            "order_index" => (int)$task["order_index"],
+            "is_code_task" => task_looks_code_based($task)
         ]
     ]);
 }

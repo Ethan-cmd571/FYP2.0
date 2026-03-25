@@ -52,6 +52,22 @@
       </div>
     </section>
 
+    <section class="panel">
+      <div class="section-head">
+        <h2>Code Mastery</h2>
+        <span class="muted">Track how well learners handle code-based ML questions</span>
+      </div>
+      <div class="mini-stats code-mastery-stats">
+        <div class="mini-stat"><span>Code Attempts</span><strong id="codeAttempts">0</strong></div>
+        <div class="mini-stat"><span>Code Accuracy</span><strong id="codeAccuracyPct">0%</strong></div>
+        <div class="mini-stat"><span>Avg Code Response</span><strong id="codeAvgResponse">0s</strong></div>
+        <div class="mini-stat"><span>Mastery Level</span><strong id="codeMasteryLevel">Needs practice</strong></div>
+      </div>
+      <div id="codeMasteryGrid" class="mastery-grid code-mastery-grid">
+        <p class="muted">Complete code-based questions to unlock code mastery tracking.</p>
+      </div>
+    </section>
+
     <section class="grid three-col analytics-row">
       <div class="panel">
         <h2>Accuracy Statistics</h2>

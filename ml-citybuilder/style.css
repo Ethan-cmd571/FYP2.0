@@ -70,3 +70,15 @@ button.ghost,.difficulty-btn{background:rgba(255,255,255,.06);border:1px solid r
 .badge-card{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(148,163,184,.14)}
 .badge-icon{font-size:1.6rem;line-height:1}
 .new-badge-banner{margin-bottom:12px;padding:12px 14px;border-radius:14px;background:rgba(250,204,21,.14);border:1px solid rgba(250,204,21,.35);color:#fde68a;font-weight:700}
+
+
+.code-mastery-stats{margin-bottom:14px}
+.code-mastery-grid{margin-top:10px}
+.task-prompt.code-prompt{
+  white-space:pre-wrap;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  background:rgba(15,23,42,.55);
+  border:1px solid rgba(96,165,250,.22);
+  padding:14px;
+  border-radius:14px;
+}

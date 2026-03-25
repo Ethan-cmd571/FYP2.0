@@ -23,13 +23,18 @@ async function api(action, method = "GET", payload = null) {
 
   const res = await fetch(url, opts);
   const text = await res.text();
+
   let data;
   try {
     data = JSON.parse(text);
   } catch {
     throw new Error(`Server returned invalid JSON for ${action}: ${text}`);
   }
-  if (!res.ok || data.error) throw new Error(data.error || `Request failed for ${action}`);
+
+  if (!res.ok || data.error) {
+    throw new Error(data.error || `Request failed for ${action}`);
+  }
+
   return data;
 }
 
@@ -64,6 +69,7 @@ function renderState(data) {
   $("statXP").textContent = data.state.xp;
   renderDistricts(data.districts || {});
   renderMastery(data.mastery || []);
+  renderCodeMastery(data.code_mastery || null);
   renderAccuracyStats(data.accuracy_stats || {});
   renderLeaderboard(data.leaderboard || []);
   renderActivity(data.activity || []);
@@ -73,11 +79,13 @@ function renderState(data) {
 function renderBadges(rows) {
   const el = $("badgeList");
   if (!el) return;
+
   if (!rows.length) {
     el.innerHTML = "Complete a full course to earn badges.";
     el.classList.add("empty-state");
     return;
   }
+
   el.classList.remove("empty-state");
   el.innerHTML = rows.map(row => `
     <div class="badge-card">
@@ -93,6 +101,8 @@ function renderBadges(rows) {
 
 function renderDistricts(districts) {
   const grid = $("districtGrid");
+  if (!grid) return;
+
   grid.innerHTML = "";
   Object.keys(districts).forEach(key => {
     const d = districts[key];
@@ -114,11 +124,14 @@ function renderDistricts(districts) {
 
 function renderMastery(mastery) {
   const grid = $("masteryGrid");
+  if (!grid) return;
+
   grid.innerHTML = "";
   if (!mastery.length) {
     grid.innerHTML = `<p class="muted">No mastery data yet. Complete some curriculum tasks first.</p>`;
     return;
   }
+
   mastery.forEach(item => {
     const card = document.createElement("div");
     card.className = `mastery-card mastery-${item.level}`;
@@ -126,6 +139,52 @@ function renderMastery(mastery) {
       <strong>${item.topic}</strong>
       <p>${item.accuracy}% accuracy</p>
       <small>${item.attempts} attempt${item.attempts === 1 ? "" : "s"}</small>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderCodeMastery(codeMastery) {
+  const attemptsEl = $("codeAttempts");
+  const accuracyEl = $("codeAccuracyPct");
+  const avgEl = $("codeAvgResponse");
+  const levelEl = $("codeMasteryLevel");
+  const grid = $("codeMasteryGrid");
+
+  if (!attemptsEl || !accuracyEl || !avgEl || !levelEl || !grid) return;
+
+  const summary = codeMastery?.summary || {
+    attempts: 0,
+    accuracy_pct: 0,
+    avg_response_seconds: 0,
+    level: "weak"
+  };
+
+  attemptsEl.textContent = summary.attempts ?? 0;
+  accuracyEl.textContent = `${summary.accuracy_pct ?? 0}%`;
+  avgEl.textContent = `${summary.avg_response_seconds ?? 0}s`;
+
+  const labelMap = {
+    strong: "Strong",
+    medium: "Developing",
+    weak: "Needs practice"
+  };
+  levelEl.textContent = labelMap[summary.level] || "Needs practice";
+
+  const topics = codeMastery?.topics || [];
+  if (!topics.length) {
+    grid.innerHTML = `<p class="muted">Complete code-based questions to unlock code mastery tracking.</p>`;
+    return;
+  }
+
+  grid.innerHTML = "";
+  topics.forEach(item => {
+    const card = document.createElement("div");
+    card.className = `mastery-card mastery-${item.level}`;
+    card.innerHTML = `
+      <strong>${item.topic}</strong>
+      <p>${item.accuracy}% code accuracy</p>
+      <small>${item.attempts} attempt${item.attempts === 1 ? "" : "s"} • Avg ${item.avg_response_seconds}s</small>
     `;
     grid.appendChild(card);
   });
@@ -141,11 +200,14 @@ function renderAccuracyStats(stats) {
 
 function renderLeaderboard(rows) {
   const el = $("leaderboardList");
+  if (!el) return;
+
   if (!rows.length) {
     el.innerHTML = "Complete some tasks to populate the leaderboard.";
     el.classList.add("empty-state");
     return;
   }
+
   el.classList.remove("empty-state");
   el.innerHTML = rows.map((row, idx) => `
     <div class="list-item">
@@ -157,11 +219,14 @@ function renderLeaderboard(rows) {
 
 function renderActivity(rows) {
   const el = $("activityList");
+  if (!el) return;
+
   if (!rows.length) {
     el.innerHTML = "Your recent activity will appear here.";
     el.classList.add("empty-state");
     return;
   }
+
   el.classList.remove("empty-state");
   el.innerHTML = rows.map(row => `
     <div class="list-item vertical">
@@ -213,20 +278,67 @@ function startLessonGate(seconds = 30) {
   }, 1000);
 }
 
+function isCodeQuestion(task) {
+  const prompt = (task?.prompt || "").toLowerCase();
+  const lesson = JSON.stringify(task?.context || {}).toLowerCase();
+  const haystack = `${prompt} ${lesson}`;
+
+  const signals = [
+    "import ",
+    "from sklearn",
+    "train_test_split",
+    "fit(",
+    "predict(",
+    "transform(",
+    "df[",
+    "iloc[",
+    "loc[",
+    "x_train",
+    "x_test",
+    "y_train",
+    "y_test",
+    "model.",
+    ".fit",
+    ".predict",
+    "drop(",
+    "read_csv(",
+    "plt.",
+    "np.",
+    "pd.",
+    "axis=1",
+    "def ",
+    "return "
+  ];
+
+  return signals.some(s => haystack.includes(s)) || /[`=\[\]\(\){}._]/.test(task?.prompt || "");
+}
+
 function renderTask(task) {
   currentTask = task;
   taskStartedAt = Date.now();
+
   $("taskBox").classList.remove("hidden");
   $("feedback").className = "feedback hidden";
   $("feedback").textContent = "";
   $("explanationPanel").classList.add("hidden");
-  $("lessonConcept").textContent = task.context?.concept || task.ml_topic;
+
+  const codeQuestion = isCodeQuestion(task);
+
+  $("lessonConcept").textContent = codeQuestion
+    ? `${task.context?.concept || task.ml_topic} • Code Challenge`
+    : (task.context?.concept || task.ml_topic);
+
   $("lessonMeta").innerHTML = `Difficulty: <strong>${task.difficulty}</strong> • Reward: <strong>${task.reward_points}</strong> • Topic: <strong>${task.ml_topic}</strong>`;
   $("lessonBody").textContent = task.context?.lesson || "Read the lesson.";
+
+  const promptEl = $("taskPrompt");
+  promptEl.classList.toggle("code-prompt", codeQuestion);
+
   $("taskOptions").innerHTML = "";
 
   const optionsWrap = document.createElement("div");
   optionsWrap.className = "options";
+
   (task.options || []).forEach(opt => {
     const btn = document.createElement("button");
     btn.className = "opt";
@@ -240,6 +352,7 @@ function renderTask(task) {
     };
     optionsWrap.appendChild(btn);
   });
+
   $("taskOptions").appendChild(optionsWrap);
   startLessonGate(30);
 }
@@ -254,6 +367,7 @@ function renderExplanation(result) {
   const badgeLine = result.new_badge
     ? `<div class="new-badge-banner">🏅 New badge earned: <strong>${result.new_badge.name}</strong></div>`
     : "";
+
   $("explanationContent").innerHTML = `
     ${badgeLine}
     <div class="explanation-result ${good ? "good" : "bad"}">
@@ -266,6 +380,7 @@ function renderExplanation(result) {
     ${ctx.common_mistake ? `<p><strong>Common mistake:</strong> ${ctx.common_mistake}</p>` : ""}
     ${answerLine}
   `;
+
   $("explanationPanel").classList.remove("hidden");
   $("taskStage").textContent = "Stage 3 of 3 • Review the explanation";
 }
@@ -276,78 +391,115 @@ async function login() {
     $("statusText").textContent = "Enter a username first.";
     return;
   }
-  const data = await api("login", "POST", { username: name });
-  userId = data.user_id;
-  username = name;
-  saveSession();
-  $("loginCard").classList.add("hidden");
-  $("btnLogout").classList.remove("hidden");
-  $("btnTask").disabled = false;
-  renderState(data);
+
+  try {
+    const data = await api("login", "POST", { username: name });
+    userId = data.user_id;
+    username = data.username || name;
+    saveSession();
+
+    $("loginCard").classList.add("hidden");
+    $("btnLogout").classList.remove("hidden");
+    $("btnTask").disabled = false;
+    $("statusText").textContent = "";
+
+    renderState(data);
+  } catch (err) {
+    $("statusText").textContent = err.message;
+  }
 }
 
 async function loadState() {
   if (!userId) return;
-  const data = await api("get_state", "GET", { user_id: userId });
-  renderState(data);
+  try {
+    const data = await api("get_state", "GET", { user_id: userId });
+    renderState(data);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 async function loadTask() {
-  const data = await api("next_task", "GET", { user_id: userId, difficulty: selectedDifficulty });
-  renderTask(data.task);
+  if (!userId) return;
+  try {
+    const data = await api("next_task", "GET", { user_id: userId, difficulty: selectedDifficulty });
+    renderTask(data.task);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 async function submitTask() {
+  if (!currentTask || !selectedAnswer) return;
+
   const responseSeconds = Math.max(1, Math.round((Date.now() - taskStartedAt) / 1000));
-  const data = await api("submit_answer", "POST", {
-    user_id: userId,
-    task_id: currentTask.task_id,
-    answer: selectedAnswer,
-    response_seconds: responseSeconds
-  });
-  renderState(data);
-  $("feedback").className = `feedback ${data.correct ? "good" : "bad"}`;
-  $("feedback").textContent = data.correct ? "Answer submitted successfully." : "Answer submitted. Review the explanation below.";
-  renderExplanation(data);
-  if (data.correct) currentTask = null;
-  syncSubmitState();
+
+  try {
+    const data = await api("submit_answer", "POST", {
+      user_id: userId,
+      task_id: currentTask.task_id,
+      answer: selectedAnswer,
+      response_seconds: responseSeconds
+    });
+
+    renderState(data);
+    $("feedback").className = `feedback ${data.correct ? "good" : "bad"}`;
+    $("feedback").textContent = data.correct
+      ? "Answer submitted successfully."
+      : "Answer submitted. Review the explanation below.";
+
+    renderExplanation(data);
+    if (data.correct) currentTask = null;
+    syncSubmitState();
+  } catch (err) {
+    console.error(err);
+    $("feedback").className = "feedback bad";
+    $("feedback").textContent = err.message;
+    $("feedback").classList.remove("hidden");
+  }
 }
 
 async function signOut() {
-  try { await api("sign_out", "POST", { user_id: userId }); } catch {}
+  try {
+    await api("sign_out", "POST", { user_id: userId });
+  } catch {}
+
   resetLessonGate();
   currentTask = null;
+  selectedAnswer = null;
+  taskStartedAt = null;
   userId = null;
   username = null;
   clearSession();
+
+  $("loginCard").classList.remove("hidden");
   $("btnLogout").classList.add("hidden");
   $("btnTask").disabled = true;
   $("taskBox").classList.add("hidden");
-  $("loginCard").classList.remove("hidden");
+  $("username").value = "";
   $("statusText").textContent = "Signed out.";
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+window.addEventListener("DOMContentLoaded", async () => {
   restoreSession();
 
-  $("btnLogin").onclick = () => login().catch(err => { console.error(err); $("statusText").textContent = err.message; });
-  $("btnLogout").onclick = () => signOut().catch(err => { console.error(err); alert(err.message); });
-  $("btnTask").onclick = () => loadTask().catch(err => { console.error(err); alert(err.message); });
-  $("btnSubmit").onclick = () => submitTask().catch(err => { console.error(err); alert(err.message); });
-
   document.querySelectorAll(".difficulty-btn").forEach(btn => {
-    btn.onclick = () => setDifficulty(btn.dataset.difficulty);
+    btn.addEventListener("click", () => setDifficulty(btn.dataset.difficulty));
+  });
+
+  $("btnLogin").addEventListener("click", login);
+  $("btnTask").addEventListener("click", loadTask);
+  $("btnSubmit").addEventListener("click", submitTask);
+  $("btnLogout").addEventListener("click", signOut);
+
+  $("username").addEventListener("keydown", e => {
+    if (e.key === "Enter") login();
   });
 
   if (userId) {
     $("loginCard").classList.add("hidden");
     $("btnLogout").classList.remove("hidden");
     $("btnTask").disabled = false;
-    try {
-      await loadState();
-    } catch (err) {
-      console.error(err);
-      await signOut();
-    }
+    await loadState();
   }
 });
